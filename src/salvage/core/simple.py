@@ -37,7 +37,7 @@ def decode_simple(spec: FormatSpec, path: str, data: bytes, max_records: int = 1
         res.header[spec.record_count_field].status = FieldStatus.UNVERIFIED
         count = None
 
-    i = 0
+    i, truncated = 0, False
     while (count is None and r.remaining() > 0) or (count is not None and i < count):
         rec_start = r.pos
         try:
@@ -46,6 +46,7 @@ def decode_simple(spec: FormatSpec, path: str, data: bytes, max_records: int = 1
             res.damage.append(DamageEntry(rec_start, len(data), DamageCause.TRUNCATED,
                                           f"file ends inside record {i}",
                                           [f"record {j}" for j in range(i, count if count is not None else i + 1)]))
+            truncated = True
             break
         rec = Record(index=i, offset=rec_start, fields=fields)
         if round_trip_ok(data[rec_start:r.pos], fields, spec.record, spec.endian):
@@ -54,6 +55,6 @@ def decode_simple(spec: FormatSpec, path: str, data: bytes, max_records: int = 1
         res.records.append(rec)
         i += 1
 
-    if count is not None and r.remaining() > 0:
+    if count is not None and r.remaining() > 0 and not truncated:
         res.warnings.append(f"{r.remaining()} trailing bytes after {count} records")
     return res
