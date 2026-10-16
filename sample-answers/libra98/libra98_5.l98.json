@@ -1,0 +1,95 @@
+{
+  "format": "libra98 (STAND-IN: invented layout, not the real format)",
+  "header": {
+    "version": 1,
+    "record_count": 12,
+    "created_unix": 890956800,
+    "decoy_u16_at_15": 367
+  },
+  "records": [
+    {
+      "id": 1000,
+      "name": "JOHN DSOUZA",
+      "enrolled": "1991-09-13",
+      "grade": 39,
+      "flags": 0
+    },
+    {
+      "id": 1001,
+      "name": "ANITA ROY",
+      "enrolled": "1992-01-21",
+      "grade": 41,
+      "flags": 1
+    },
+    {
+      "id": 1002,
+      "name": "ANITA ROY",
+      "enrolled": "1993-08-23",
+      "grade": 37,
+      "flags": 0
+    },
+    {
+      "id": 1003,
+      "name": "ANITA ROY",
+      "enrolled": "1993-09-05",
+      "grade": 55,
+      "flags": 3
+    },
+    {
+      "id": 1004,
+      "name": "MEERA IYER",
+      "enrolled": "1996-05-14",
+      "grade": 88,
+      "flags": 0
+    },
+    {
+      "id": 1005,
+      "name": "SARA KHAN",
+      "enrolled": "1994-03-12",
+      "grade": 57,
+      "flags": 1
+    },
+    {
+      "id": 1006,
+      "name": "VIKRAM RAO",
+      "enrolled": "1997-07-10",
+      "grade": 94,
+      "flags": 0
+    },
+    {
+      "id": 1007,
+      "name": "ARJUN MEHTA",
+      "enrolled": "1997-08-04",
+      "grade": 70,
+      "flags": 0
+    },
+    {
+      "id": 1008,
+      "name": "JOHN DSOUZA",
+      "enrolled": "1993-01-03",
+      "grade": 93,
+      "flags": 3
+    },
+    {
+      "id": 1009,
+      "name": "ARJUN MEHTA",
+      "enrolled": "1996-09-26",
+      "grade": 58,
+      "flags": 0
+    },
+    {
+      "id": 1010,
+      "name": "ARJUN MEHTA",
+      "enrolled": "1992-06-18",
+      "grade": 62,
+      "flags": 0
+    },
+    {
+      "id": 1011,
+      "name": "KIRAN DAS",
+      "enrolled": "1994-09-25",
+      "grade": 62,
+      "flags": 3
+    }
+  ]
+}

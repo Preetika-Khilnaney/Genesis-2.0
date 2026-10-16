@@ -52,3 +52,23 @@ def find_variant(blobs: list[bytes]) -> list[str]:
         except RLEError:
             continue
     return ok
+
+
+def best_variant(blobs: list[bytes], min_share: float = 0.8) -> tuple[str | None, float]:
+    """Variant that round-trips the largest share of blobs. Unlike find_variant, a few
+    damaged blobs do not veto it. Returns (None, share) unless exactly one variant reaches
+    min_share; the caller still verifies each blob by its own exact round trip."""
+    if not blobs:
+        return None, 0.0
+    scored = []
+    for name, (dec, enc) in VARIANTS.items():
+        ok = 0
+        for b in blobs:
+            try:
+                ok += enc(dec(b)) == b
+            except RLEError:
+                pass
+        scored.append((ok / len(blobs), name))
+    winners = [n for s, n in scored if s >= min_share]
+    best = max(s for s, _ in scored)
+    return (winners[0], best) if len(winners) == 1 else (None, best)

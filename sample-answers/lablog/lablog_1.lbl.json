@@ -1,0 +1,25 @@
+{
+  "format": "lablog (STAND-IN: invented layout, not the real format)",
+  "header": {
+    "instrument": 41
+  },
+  "block_layout": "marker A5 5A, u16 seq, u16 length, payload, u32 crc32(payload)",
+  "records": [
+    {
+      "seq": 0,
+      "payload": "t=48;temp=23.6;ph=6.79"
+    },
+    {
+      "seq": 1,
+      "payload": "t=127;temp=24.4;ph=6.62"
+    },
+    {
+      "seq": 2,
+      "payload": "t=206;temp=21.3;ph=7.09"
+    },
+    {
+      "seq": 3,
+      "payload": "t=237;temp=22.3;ph=6.84"
+    }
+  ]
+}

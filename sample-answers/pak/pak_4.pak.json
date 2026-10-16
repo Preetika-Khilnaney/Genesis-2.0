@@ -1,0 +1,21 @@
+{
+  "format": "pak (Quake PACK archive, real public format)",
+  "layout": "'PACK', i32 dir_offset, i32 dir_length; directory at the END: 64-byte entries of name[56] NUL-padded, i32 offset, i32 size",
+  "entries": [
+    {
+      "name": "sound/door.wav",
+      "offset": 12,
+      "size": 61
+    },
+    {
+      "name": "sound/ambience.wav",
+      "offset": 73,
+      "size": 197
+    },
+    {
+      "name": "gfx/palette.lmp",
+      "offset": 270,
+      "size": 207
+    }
+  ]
+}

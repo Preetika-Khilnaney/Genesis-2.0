@@ -16,7 +16,12 @@ _COMMON = set(b"etaoinshrdlu ETAOINSHRDLU0123456789")
 
 def text_score(data: bytes) -> float:
     """How much `data` looks like text: printable share, boosted by common letters,
-    digits and spaces. Printable share alone ties keys that only flip letter case."""
+    digits and spaces. Printable share alone ties keys that only flip letter case.
+
+    Trailing NUL bytes are padding in fixed-width string fields: they are dropped
+    before scoring, so the right key is not punished for them (and a wrong key that
+    turns the padding into letters does not win)."""
+    data = data.rstrip(b"\x00")
     if not data:
         return 0.0
     printable = sum(1 for b in data if 32 <= b < 127 or b in (9, 10, 13)) / len(data)
@@ -35,3 +40,27 @@ def rank_single_byte_keys(samples: list[bytes]) -> list[tuple[int, float]]:
 
 
 # TODO(Khushi): multi-byte repeating keys (split by key position, rank each byte)
+
+
+def is_clean_fixed_string(data: bytes) -> bool:
+    """Printable text followed by at least one NUL of padding: what a fixed-width string
+    field looks like under the right key. The padding is the real fingerprint: almost any
+    key makes short names printable, but only the right key turns the padding into zeros."""
+    core = data.rstrip(b"\x00")
+    return bool(core) and len(core) < len(data) and all(32 <= c < 127 for c in core)
+
+
+def best_fixed_string_key(fields: list[bytes], min_share: float = 0.5, min_margin: float = 0.3) -> tuple[int | None, float]:
+    """Single-byte key that turns the most fields into clean NUL-padded strings.
+    Returns (key, share) only when the winner covers >= min_share of the fields and beats
+    the runner-up by >= min_margin; otherwise (None, best_share): leave strings unverified.
+    Tolerates a few damaged fields, so one corrupt sample cannot flip the decision.
+    min_share is 0.5 because names that fill the whole field have no padding."""
+    if not fields:
+        return None, 0.0
+    shares = sorted(((sum(is_clean_fixed_string(xor(f, bytes([k]))) for f in fields) / len(fields), k)
+                     for k in range(256)), reverse=True)
+    (top, key), (second, _) = shares[0], shares[1]
+    if top >= min_share and top - second >= min_margin:
+        return key, top
+    return None, top

@@ -1,0 +1,114 @@
+{
+  "format": "wks (Lotus 1-2-3, real public format)",
+  "layout": "records of u16 opcode, u16 length, body; BOF 0x0000 (0x0404), RANGE 0x0006, INTEGER 0x000D, NUMBER 0x000E (f64), LABEL 0x000F (prefix char + NUL text), EOF 0x0001",
+  "cells": [
+    {
+      "col": 0,
+      "row": 0,
+      "type": "label",
+      "value": "Item"
+    },
+    {
+      "col": 1,
+      "row": 0,
+      "type": "label",
+      "value": "Qty"
+    },
+    {
+      "col": 2,
+      "row": 0,
+      "type": "label",
+      "value": "Price"
+    },
+    {
+      "col": 0,
+      "row": 1,
+      "type": "label",
+      "value": "Milk"
+    },
+    {
+      "col": 1,
+      "row": 1,
+      "type": "integer",
+      "value": 251
+    },
+    {
+      "col": 2,
+      "row": 1,
+      "type": "number",
+      "value": 130.58
+    },
+    {
+      "col": 0,
+      "row": 2,
+      "type": "label",
+      "value": "Salt"
+    },
+    {
+      "col": 1,
+      "row": 2,
+      "type": "integer",
+      "value": 174
+    },
+    {
+      "col": 2,
+      "row": 2,
+      "type": "number",
+      "value": 147.23
+    },
+    {
+      "col": 0,
+      "row": 3,
+      "type": "label",
+      "value": "Rice"
+    },
+    {
+      "col": 1,
+      "row": 3,
+      "type": "integer",
+      "value": 40
+    },
+    {
+      "col": 2,
+      "row": 3,
+      "type": "number",
+      "value": 395.6
+    },
+    {
+      "col": 0,
+      "row": 4,
+      "type": "label",
+      "value": "Dal"
+    },
+    {
+      "col": 1,
+      "row": 4,
+      "type": "integer",
+      "value": 443
+    },
+    {
+      "col": 2,
+      "row": 4,
+      "type": "number",
+      "value": 320.18
+    },
+    {
+      "col": 0,
+      "row": 5,
+      "type": "label",
+      "value": "Sugar"
+    },
+    {
+      "col": 1,
+      "row": 5,
+      "type": "integer",
+      "value": 389
+    },
+    {
+      "col": 2,
+      "row": 5,
+      "type": "number",
+      "value": 106.71
+    }
+  ]
+}

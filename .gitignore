@@ -4,10 +4,13 @@ __pycache__/
 .venv/
 out/
 *.egg-info/
-# Sample files may be sensitive: they stay local unless the team agrees otherwise.
-samples/**
-!samples/README.md
+# Real samples (the organisers' files) may be sensitive: they stay local, never committed.
+# samples/ and sample-answers/ are our own demo data and ARE committed.
+real-samples/
 tests/fixtures/damaged/
+
+practice/
 
 # Personal study notes, kept local
 notes/
+

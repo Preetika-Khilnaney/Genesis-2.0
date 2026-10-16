@@ -1,0 +1,74 @@
+{
+  "format": "libra98 (STAND-IN: invented layout, not the real format)",
+  "header": {
+    "version": 1,
+    "record_count": 9,
+    "created_unix": 888019200,
+    "decoy_u16_at_15": 277
+  },
+  "records": [
+    {
+      "id": 1000,
+      "name": "MEERA IYER",
+      "enrolled": "1997-01-03",
+      "grade": 35,
+      "flags": 1
+    },
+    {
+      "id": 1001,
+      "name": "KIRAN DAS",
+      "enrolled": "1991-10-26",
+      "grade": 60,
+      "flags": 0
+    },
+    {
+      "id": 1002,
+      "name": "RAVI KUMAR",
+      "enrolled": "1990-09-09",
+      "grade": 80,
+      "flags": 0
+    },
+    {
+      "id": 1003,
+      "name": "ASHA PATEL",
+      "enrolled": "1995-11-19",
+      "grade": 97,
+      "flags": 3
+    },
+    {
+      "id": 1004,
+      "name": "OMAR SHAIKH",
+      "enrolled": "1992-09-08",
+      "grade": 95,
+      "flags": 3
+    },
+    {
+      "id": 1005,
+      "name": "MEERA IYER",
+      "enrolled": "1994-02-14",
+      "grade": 55,
+      "flags": 0
+    },
+    {
+      "id": 1006,
+      "name": "KIRAN DAS",
+      "enrolled": "1994-09-14",
+      "grade": 84,
+      "flags": 0
+    },
+    {
+      "id": 1007,
+      "name": "NEHA JOSHI",
+      "enrolled": "1993-07-01",
+      "grade": 48,
+      "flags": 1
+    },
+    {
+      "id": 1008,
+      "name": "RAVI KUMAR",
+      "enrolled": "1990-06-21",
+      "grade": 80,
+      "flags": 0
+    }
+  ]
+}
