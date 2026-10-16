@@ -1,0 +1,26 @@
+# Runtime + dev dependencies for the salvage tool.
+# Pinned exact versions.
+#
+# Offline build strategy:
+#   make vendor     -- downloads binary wheels for all packages that have them
+#                      (run once while online; target: linux/arm64 Docker image)
+#   Dockerfile      -- installs from vendor/wheels; packages without pre-built wheels
+#                      (crcmod) are compiled from sdist in the `docker build` step,
+#                      which is allowed to have network access.
+#   docker run      -- NEVER touches the network (--network none)
+#
+# Dev tools (not in the Docker image):
+#   hypothesis, pytest, jsonschema, jinja2 are installed into .venv for local dev.
+
+# --- runtime (inside Docker) ---
+numpy==2.2.6
+scipy==1.15.3
+crcmod==1.7
+
+# --- output / schema / templating (inside Docker) ---
+jsonschema==4.24.0
+jinja2==3.1.6
+
+# --- dev-only (local .venv, not in Docker image) ---
+hypothesis==6.135.22
+pytest==9.1.1
