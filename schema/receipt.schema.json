@@ -1,0 +1,15 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Salvage receipt entry",
+  "type": "object",
+  "required": ["source_file", "input_sha256", "format", "field_status", "prev", "hash"],
+  "properties": {
+    "source_file":   {"type": "string"},
+    "input_sha256":  {"type": ["string", "null"]},
+    "format":        {"type": "string"},
+    "spec_version":  {"type": ["string", "null"]},
+    "field_status":  {"type": "object"},
+    "prev":          {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "hash":          {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+  }
+}

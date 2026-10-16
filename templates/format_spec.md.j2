@@ -1,0 +1,60 @@
+{# FORMAT-SPEC.md template. Rendered by tools/gen_format_spec.py (Jinja2). #}
+{# Do not edit the output file by hand. Edit this template or the FormatSpec objects. #}
+# FORMAT-SPEC
+
+<!-- BEGIN GENERATED -->
+Generated from the spec library (`src/salvage/formats/`). Do not edit by hand:
+change the FormatSpec and regenerate with `make spec`.
+
+Field statuses used in outputs: `verified`, `corrected`, `unverified`, `lost`.
+<!-- END GENERATED -->
+
+{% for dec in decoders %}
+<!-- BEGIN GENERATED {{ dec.name }} -->
+## {{ dec.name }}
+
+{% if dec.spec %}
+{% if dec.spec.description and dec.spec.description != "TODO" %}
+{{ dec.spec.description }}
+
+{% endif %}
+- Magic: `{{ dec.spec.magic.hex(' ') if dec.spec.magic else 'none' }}` at offset {{ dec.spec.magic_offset }}
+- Endianness: {{ dec.spec.endian }}
+{% if dec.spec.checksum %}
+- Checksum: {{ dec.spec.checksum }}
+{% endif %}
+{% if dec.spec.record_count_field %}
+- Record count: header field `{{ dec.spec.record_count_field }}`
+{% endif %}
+
+{% if dec.spec.header %}
+### Header
+
+| Field | Type | Size | Description | Evidence |
+| --- | --- | --- | --- | --- |
+{% for f in dec.spec.header %}
+| {{ f.name }} | {{ f.type }} | {{ f.length if f.length is not none else type_size(f.type) or 'var' }} | {{ f.desc or '—' }} | {{ f.evidence or '—' }} |
+{% endfor %}
+
+{% endif %}
+{% if dec.spec.record %}
+### Record
+
+| Field | Type | Size | Description | Evidence |
+| --- | --- | --- | --- | --- |
+{% for f in dec.spec.record %}
+| {{ f.name }} | {{ f.type }} | {{ f.length if f.length is not none else type_size(f.type) or 'var' }} | {{ f.desc or '—' }} | {{ f.evidence or '—' }} |
+{% endfor %}
+
+{% endif %}
+{% for note in dec.spec.notes %}
+- {{ note }}
+{% endfor %}
+{% else %}
+_Spec not written yet._
+{% endif %}
+{% if not dec.ready %}
+_Status: in progress (decoder not ready)._
+{% endif %}
+<!-- END GENERATED {{ dec.name }} -->
+{% endfor %}
