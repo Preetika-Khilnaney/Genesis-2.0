@@ -164,6 +164,9 @@ Layout, worked out from real-samples s08-s10 and expected_outputs/s08 (evidence 
 
 Verification: an entry is verified when its CRC-32 matches the decoded data and the decoded size
 matches the index. If XOR and RLE could apply in either order, the CRC decides which is right.
+Names and type bytes are not covered by the CRC: a name must look like a file name, and its
+extension must agree with the type byte (.txt text, .bin binary, .bmp8 bitmap, as on every real
+entry); a flip that keeps a plausible name cannot be seen (tools/false_recovery.py measures it).
 ```
 
 Archive: header, index table, XOR-obscured name table, and blobs (optionally XOR'd and RLE90-compressed), each with a CRC-32 of its decoded data.
@@ -406,7 +409,13 @@ Public formats, checked against real-samples s23 (WAD) and s24 (PAK); evidence i
                directory entries (64 bytes): name[56] NUL-terminated, i32 offset, i32 size.
 
 Records: name, offset, size, sha256 of the lump/file bytes. An entry is verified when it lies
-inside the file and does not start inside the header or directory.
+inside the file, does not start inside the header or directory, AND it is not next to a break in
+the tiling: sorted by offset, the entries with data must start at 12, touch end to start and end
+where the directory begins (zero-size markers are skipped). Both real samples tile exactly.
+A damaged offset or size always breaks the chain right next to its own entry, so only the
+entries on either side of a break are suspect; the rest stay verified.
+Neither format has a checksum, so a flipped bit inside file data or inside a name cannot be
+seen: tools/false_recovery.py measures that rate.
 ```
 
 Doom WAD: 12-byte header, lumps, directory of 16-byte entries.
@@ -444,7 +453,13 @@ Public formats, checked against real-samples s23 (WAD) and s24 (PAK); evidence i
                directory entries (64 bytes): name[56] NUL-terminated, i32 offset, i32 size.
 
 Records: name, offset, size, sha256 of the lump/file bytes. An entry is verified when it lies
-inside the file and does not start inside the header or directory.
+inside the file, does not start inside the header or directory, AND it is not next to a break in
+the tiling: sorted by offset, the entries with data must start at 12, touch end to start and end
+where the directory begins (zero-size markers are skipped). Both real samples tile exactly.
+A damaged offset or size always breaks the chain right next to its own entry, so only the
+entries on either side of a break are suspect; the rest stay verified.
+Neither format has a checksum, so a flipped bit inside file data or inside a name cannot be
+seen: tools/false_recovery.py measures that rate.
 ```
 
 Quake PAK: 12-byte header, files, directory of 64-byte entries.
