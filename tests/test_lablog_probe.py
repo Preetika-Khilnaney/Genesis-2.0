@@ -55,7 +55,7 @@ def test_checksum_breaks_a_tie_between_length_readings(tmp_path):
     # every file. Only the true reading puts the payload where the CRC matches.
     def blk(seq, p):
         return b"\xa5\x5a" + struct.pack("<HH", seq, len(p)) + p + struct.pack("<I", zlib.crc32(p))
-    for i, n in enumerate((4, 6)):
+    for i, n in enumerate((4, 6, 5)):
         data = b"HDR!" + b"".join(blk(j, f"x={i}{j * 37};y=ok".encode()) for j in range(n))
         (tmp_path / f"f{i}.lbl").write_bytes(data)
     assert probe.main([str(tmp_path)]) == 0
@@ -67,17 +67,17 @@ def test_checksum_breaks_a_tie_between_length_readings(tmp_path):
     assert got["payload is ';'-separated key=value pairs with keys x, y in that order"] == "accepted"
 
 
-def test_probe_needs_two_clean_samples(tmp_path, capsys):
+def test_probe_needs_enough_clean_samples(tmp_path, capsys):
     (tmp_path / "only.bin").write_bytes(make(5, 0))
     assert probe.main([str(tmp_path)]) == 1
-    assert "need at least 2 clean samples" in capsys.readouterr().out
+    assert f"need at least {probe.checker.MIN_SAMPLES} clean samples" in capsys.readouterr().out
 
 
 def test_probe_never_writes_the_log_without_flag(tmp_path, monkeypatch):
     log = tmp_path / "LOG.md"
     log.write_text("")
     monkeypatch.setenv("SALVAGE_FIELD_LOG", str(log))
-    for i, n in enumerate((3, 4)):
+    for i, n in enumerate((3, 4, 5)):
         (tmp_path / f"s{i}.bin").write_bytes(make(n, i))
     assert probe.main([str(tmp_path)]) == 0
     assert log.read_text() == ""

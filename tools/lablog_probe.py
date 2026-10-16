@@ -224,8 +224,8 @@ def verdict(fmt: str, hyp: str, blobs: list[bytes], test) -> checker.Verdict:
 
 def probe(paths: list[Path], fmt: str, by: str, include_damaged: bool, min_hits: int = MIN_HITS) -> int:
     files = [(n, d) for n, d in load(paths) if include_damaged or ".damaged-" not in Path(n).name]
-    if len(files) < 2:
-        print(f"need at least 2 clean samples (all-samples rule), got {len(files)}")
+    if len(files) < checker.MIN_SAMPLES:
+        print(f"need at least {checker.MIN_SAMPLES} clean samples (all-samples rule), got {len(files)}")
         return 1
     blobs = [d for _, d in files]
     logs: list[tuple[str, str, str]] = []
