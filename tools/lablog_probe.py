@@ -8,7 +8,7 @@ Analysis only, standard library only. Clean samples only: files named *.damaged-
 skipped (use --all to include them). Everything it reports must hold on EVERY sample:
 
   1. header      first 32 bytes, with the bytes identical in every sample marked
-  2. markers     2- and 4-byte patterns occurring >= 3 times in every file, ranked
+  2. markers     1-, 2- and 4-byte patterns occurring >= 3 times in every file, ranked
                  (--min-hits; small files may hold only a handful of blocks)
   3. length      for the top marker candidates: which integer after the marker equals
                  (distance to the next block) - constant in every block of every sample
@@ -79,7 +79,7 @@ def marker_candidates(blobs: list[bytes], skip: int, min_hits: int = MIN_HITS) -
     """(pattern, fewest hits in any file) for patterns seen >= min_hits times in EVERY file,
     most frequent first. Bytes before `skip` (the magic) are ignored."""
     found: dict[bytes, int] = {}
-    for width in (2, 4):
+    for width in (1, 2, 4):
         per_file = []
         for b in blobs:
             c = Counter(b[i:i + width] for i in range(skip, len(b) - width + 1))
@@ -264,6 +264,12 @@ def probe(paths: list[Path], fmt: str, by: str, include_damaged: bool, min_hits:
         for l in found:
             print(f"  marker {pat.hex(' '):<12} length {l.len_type:<6} at marker+{l.len_at}   block = length + {l.const}")
         layouts += found
+    # A shorter marker that is a prefix of a longer one with the same block boundaries (A5 vs A5 5A)
+    # is the same layout read less specifically: keep the longer marker.
+    def same_blocks(a: Layout, b: Layout) -> bool:
+        return all(a.walk(x) == b.walk(x) for x in blobs)
+    layouts = [l for l in layouts if not any(len(o.marker) > len(l.marker) and o.marker.startswith(l.marker)
+                                             and same_blocks(o, l) for o in layouts)]
     print(f"  ({len(cands)} marker candidates tried, {len(layouts)} layout(s) walk every sample)")
     if not layouts:
         print("no marker candidate is explained by a length field; check the hex view "
@@ -287,12 +293,18 @@ def probe(paths: list[Path], fmt: str, by: str, include_damaged: bool, min_hits:
     confirmed = [(l, t) for l, trials in per_layout for t in trials if t["match"]]
     with_crc = list({id(l): l for l, _ in confirmed}.values())
 
+    ambiguous = len(with_crc) > 1
     if len(with_crc) == 1:
         lay = with_crc[0]
+    elif with_crc:
+        # e.g. u8 vs u16 length when every length is < 256 and the CRC covers both bytes: the
+        # samples cannot decide. Carry on with the widest reading, but log the choice as open.
+        lay = max(with_crc, key=lambda l: l.size)
+        print(f"\n{len(with_crc)} layouts have a matching checksum: ambiguous; continuing with the widest "
+              f"({lay.len_type}), logged as open")
     else:
-        print(f"\n{len(with_crc)} layouts have a matching checksum: "
-              + ("ambiguous, look at the hex view" if with_crc else
-                 "add the variant to recovery/crc.py, or run CRC RevEng at build time"))
+        print("\n0 layouts have a matching checksum: add the variant to recovery/crc.py, "
+              "or run CRC RevEng at build time")
         lay = layouts[0]
     m = lay.marker
     counts = [len(lay.walk(b)) for b in blobs]
@@ -330,14 +342,25 @@ def probe(paths: list[Path], fmt: str, by: str, include_damaged: bool, min_hits:
         logs.append((f"header bytes {hdr_at}-{lay.start - 1}: meaning unknown",
                      f"values {', '.join(vals)}; not block count, file size or constant; keep unverified", "open"))
 
+    rivals = ", ".join(f"{l.len_type}@+{l.len_at}" for l in with_crc if l is not lay)
     for l, _ in per_layout:
-        if l is not lay:
+        if l is lay:
+            continue
+        if l in with_crc:
+            logs.append((f"{l.len_type} at marker+{l.len_at} is the block length (block = length + {l.const})",
+                         f"walks all {sum(counts)} blocks and the checksum matches too: the samples cannot tell "
+                         f"it from {lay.len_type}@+{lay.len_at}", "open"))
+        else:
             logs.append((f"{l.len_type} at marker+{l.len_at} is the block length (block = length + {l.const})",
                          f"walks all {sum(counts)} blocks too, but no checksum algorithm matches every block "
                          f"under it, so its payload boundaries are wrong", "rejected"))
-    record(f"{lay.len_type} at marker+{lay.len_at} is the payload length (block = length + {lay.const})",
-           lambda b: lay.walk(b) is not None and lay in with_crc,
-           f"{sum(counts)} blocks walk to EOF exactly and the checksum confirms the payload boundaries")
+    hyp = f"{lay.len_type} at marker+{lay.len_at} is the payload length (block = length + {lay.const})"
+    if ambiguous:
+        logs.append((hyp, f"{sum(counts)} blocks walk to EOF exactly and the checksum matches, but so does {rivals} "
+                          "(every length < 256 and the checksum covers both bytes); widest reading kept", "open"))
+    else:
+        record(hyp, lambda b: lay.walk(b) is not None and lay in with_crc,
+               f"{sum(counts)} blocks walk to EOF exactly and the checksum confirms the payload boundaries")
 
     covered_to = 0                         # fields between marker and length: a counter?
     for at in range(lay.len_at):
