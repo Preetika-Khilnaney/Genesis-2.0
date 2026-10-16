@@ -64,3 +64,27 @@ def best_fixed_string_key(fields: list[bytes], min_share: float = 0.5, min_margi
     if top >= min_share and top - second >= min_margin:
         return key, top
     return None, top
+
+
+def choose_key(per_sample: list[list[bytes]], min_samples: int = 2) -> tuple[int | None, bool, str]:
+    """The all-samples rule for a single-byte XOR key over fixed-width string fields.
+
+    per_sample: the obfuscated fields of each sample (this file first).
+    Returns (key, agreed, note):
+      - agreed=True:  the same key wins (best_fixed_string_key) on every sample that names a
+                      winner, and on at least `min_samples` of them -> strings may be VERIFIED;
+      - agreed=False, key set:  samples disagree or too few; key is this file's own winner, so
+                      its strings stay UNVERIFIED;
+      - key None:     no key turns this file's fields into readable text -> LOST, cause bad_key.
+    A sample with no winner (e.g. badly damaged) does not veto; a sample with a DIFFERENT
+    winner does."""
+    keys = [best_fixed_string_key(f)[0] if f else None for f in per_sample]
+    own = keys[0] if keys else None
+    named = [k for k in keys if k is not None]
+    if own is None:
+        return None, False, "no single-byte key gives readable NUL-padded names in this file"
+    if len(set(named)) == 1 and len(named) >= min_samples:
+        return own, True, f"key 0x{own:02X} wins on all {len(named)} samples that name a key"
+    if len(set(named)) > 1:
+        return own, False, f"samples disagree on the key ({', '.join(f'0x{k:02X}' for k in sorted(set(named)))})"
+    return own, False, f"key 0x{own:02X} seen on {len(named)} sample(s) only; need {min_samples}"
