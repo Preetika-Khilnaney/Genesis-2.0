@@ -8,3 +8,4 @@ out/
 samples/**
 !samples/README.md
 tests/fixtures/damaged/
+practice/
