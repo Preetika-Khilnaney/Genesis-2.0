@@ -7,6 +7,7 @@ the run, and the process ALWAYS exits 0.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import sys
 import traceback
 from dataclasses import dataclass, field
@@ -88,16 +89,19 @@ def context_for(s: Scanned, groups: dict[str, list[Scanned]]) -> DecodeContext:
 
 def decode_one(s: Scanned, ctx: DecodeContext | None) -> FileResult:
     """Pass 2: decode one file with its format's context. Never raises."""
+    file_sha256 = hashlib.sha256(s.data).hexdigest() if s.data is not None else None
     if s.read_error is not None and s.data is None:
-        return FileResult(source_file=s.rel, format="unknown", error=s.read_error)
+        return FileResult(source_file=s.rel, format="unknown", error=s.read_error, input_sha256=None)
     if s.decoder is None:
         res = unknown.describe(s.rel, s.data, best_confidence=s.confidence)
+        res.input_sha256 = file_sha256
         if s.read_error:
             res.error = s.read_error
         return res
     try:
         result = s.decoder.decode(s.rel, s.data, ctx)
         result.confidence = s.confidence
+        result.input_sha256 = file_sha256
         annotate_identification(result, s)
         if ctx is not None:
             result.extra.setdefault("samples_in_context", ctx.sample_count)
@@ -106,6 +110,7 @@ def decode_one(s: Scanned, ctx: DecodeContext | None) -> FileResult:
         # Decoder crashed: report it, fall back to the unknown-file description.
         res = unknown.describe(s.rel, s.data, best_confidence=s.confidence)
         res.format = s.decoder.name
+        res.input_sha256 = file_sha256
         res.error = f"{type(e).__name__}: {e}"
         res.warnings.append("decoder crashed; see error. Traceback tail: "
                             + traceback.format_exc().strip().splitlines()[-1])
