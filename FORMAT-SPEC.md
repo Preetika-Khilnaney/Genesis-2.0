@@ -1,19 +1,21 @@
 # FORMAT-SPEC
 
+<!-- BEGIN GENERATED -->
 Generated from the spec library (`src/salvage/formats/`). Do not edit by hand:
 change the FormatSpec and regenerate with `make spec`.
 
 Field statuses used in outputs: `verified`, `corrected`, `unverified`, `lost`.
+<!-- END GENERATED -->
 
+<!-- BEGIN GENERATED game_archive -->
 ## game_archive
-
-TODO
 
 - Magic: `none` at offset 0
 - Endianness: little
 
 _Status: in progress (decoder not ready)._
-
+<!-- END GENERATED game_archive -->
+<!-- BEGIN GENERATED lablog -->
 ## lablog
 
 A 6-byte header, then checksummed blocks back to back until the end of the file. Each block is a 2-byte marker A5 5A, a sequence number, a payload length, the payload (text like t=89;temp=24.9;ph=6.81) and a CRC-32 of the payload. STAND-IN layout from our own samples; redo from the real samples.
@@ -24,14 +26,14 @@ A 6-byte header, then checksummed blocks back to back until the end of the file.
 
 ### Header
 
-| Field | Type | Length | Description | Evidence |
+| Field | Type | Size | Description | Evidence |
 | --- | --- | --- | --- | --- |
 | magic | bytes | 4 | file signature 'LBLG' | FIELD-LOG: same in all 6 samples |
 | unknown_4 | u16 | 2 | meaning unknown; one value per file (40-45 seen) | FIELD-LOG: not the block count, the file size or a constant (open) |
 
 ### Record
 
-| Field | Type | Length | Description | Evidence |
+| Field | Type | Size | Description | Evidence |
 | --- | --- | --- | --- | --- |
 | seq | u16 | 2 | block sequence number, 0, 1, 2 ... (after marker A5 5A) | FIELD-LOG: counts up by 1 from 0 in every sample |
 | length | u16 | 2 | payload length in bytes; block = length + 10 | FIELD-LOG: walks all 37 blocks to EOF; the CRC rejects 2 rival readings |
@@ -43,7 +45,8 @@ A 6-byte header, then checksummed blocks back to back until the end of the file.
 - Blocks: A5 5A | u16 seq | u16 length N | N payload bytes | u32 crc32(payload).
 - The CRC does not cover seq or length; see the module docstring for how they are verified.
 - unknown_4 stays unverified until its meaning is proven.
-
+<!-- END GENERATED lablog -->
+<!-- BEGIN GENERATED libra98 -->
 ## libra98
 
 Header of 20 bytes, then record_count fixed-size records of 30 bytes. No checksum, so values are verified by the layout fitting the file exactly, an exact round trip and per-field checks (ids count up by 1, readable names, real dates, scores 0-100). STAND-IN layout from our own samples; redo from the real samples.
@@ -54,7 +57,7 @@ Header of 20 bytes, then record_count fixed-size records of 30 bytes. No checksu
 
 ### Header
 
-| Field | Type | Length | Description | Evidence |
+| Field | Type | Size | Description | Evidence |
 | --- | --- | --- | --- | --- |
 | magic | bytes | 8 | file signature 'LIBRA-98' | FIELD-LOG: same in all samples |
 | version | u8 | 1 | format version, 1 in every sample | FIELD-LOG: constant 1; kept out of the magic so other versions still match |
@@ -65,7 +68,7 @@ Header of 20 bytes, then record_count fixed-size records of 30 bytes. No checksu
 
 ### Record
 
-| Field | Type | Length | Description | Evidence |
+| Field | Type | Size | Description | Evidence |
 | --- | --- | --- | --- | --- |
 | id | u32 | 4 | record id, counts up by 1 from 1000 | FIELD-LOG: counts up by 1 in every undamaged sample |
 | name | str | 20 | name, NUL-padded | FIELD-LOG: printable text + NUL padding in every undamaged sample |
@@ -75,16 +78,16 @@ Header of 20 bytes, then record_count fixed-size records of 30 bytes. No checksu
 | pad | bytes | 2 | zero padding | FIELD-LOG: zero in every sample |
 
 - decoy_15 looks like a length field but every length meaning was rejected; it stays unverified.
-
+<!-- END GENERATED libra98 -->
+<!-- BEGIN GENERATED realworld -->
 ## realworld
-
-TODO
 
 - Magic: `none` at offset 0
 - Endianness: little
 
 _Status: in progress (decoder not ready)._
-
+<!-- END GENERATED realworld -->
+<!-- BEGIN GENERATED vault -->
 ## vault
 
 A 6-byte header with the entry count, an index table of 24-byte entries, then the blobs back to back. Names are XORed with a single-byte key; blobs are run-length encoded (count, byte) pairs. No checksum. STAND-IN layout from our own samples; redo from the real samples.
@@ -94,14 +97,14 @@ A 6-byte header with the entry count, an index table of 24-byte entries, then th
 
 ### Header
 
-| Field | Type | Length | Description | Evidence |
+| Field | Type | Size | Description | Evidence |
 | --- | --- | --- | --- | --- |
 | magic | bytes | 4 | file signature 'VALT' | FIELD-LOG: same in all 6 samples |
 | count | u16 | 2 | number of index entries | FIELD-LOG: first blob starts at 6 + count * 24 in every sample |
 
 ### Record
 
-| Field | Type | Length | Description | Evidence |
+| Field | Type | Size | Description | Evidence |
 | --- | --- | --- | --- | --- |
 | name | str | 12 | entry name, XORed with a single-byte key, NUL-padded | FIELD-LOG: key 0x5C wins on every sample; not per file or per entry |
 | offset | u32 | 4 | absolute offset of the blob | FIELD-LOG: blobs tile the data area exactly in every sample |
@@ -111,3 +114,4 @@ A 6-byte header with the entry count, an index table of 24-byte entries, then th
 
 - The RLE variant and the XOR key are chosen from the samples at run time (all-samples rule).
 - No checksum: a bit flip in a literal byte that keeps the text printable cannot be detected.
+<!-- END GENERATED vault -->

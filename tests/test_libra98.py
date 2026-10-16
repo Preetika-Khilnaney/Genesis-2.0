@@ -16,6 +16,7 @@ import pytest
 from salvage.adapters import get_decoder, get_spec_for  # noqa: F401
 from salvage.cli import main
 from salvage.core.model import FieldStatus
+from salvage.core.registry import DecodeContext
 
 ROOT = Path(__file__).parent.parent
 ANS = ROOT / "sample-answers" / "libra98"
@@ -36,14 +37,18 @@ def test_libra98_roundtrip():
     if dec is None:
         pytest.skip("Preetika's LIBRA-98 decoder is not yet marked ready (src/salvage/formats/libra98.py: ready=False)")
 
-    # When ready, test against clean fixtures or sample files
-    fixtures = list(Path("tests/fixtures/clean").glob("*.libra*")) + list(Path("samples").glob("*.libra*"))
+    # Clean sample files
+    fixtures = [p for p in Path("samples/libra98").glob("*.l98") if ".damaged-" not in p.name]
     if not fixtures:
-        pytest.skip("No LIBRA-98 sample fixtures present in tests/fixtures/clean or samples/")
+        fixtures = list(Path("tests/fixtures/clean").glob("*.l98"))
+    if not fixtures:
+        pytest.skip("No LIBRA-98 sample fixtures present in samples/libra98 or tests/fixtures/clean")
+
+    ctx = DecodeContext(format="libra98", siblings=[(p.name, p.read_bytes()) for p in fixtures])
 
     for fix in fixtures:
         data = fix.read_bytes()
-        res = dec.decode(fix.name, data)
+        res = dec.decode(fix.name, data, ctx)
         assert res.format == "libra98"
         assert res.error is None
         # Assert every decoded field is verified
@@ -53,22 +58,21 @@ def test_libra98_roundtrip():
 
 
 def test_libra98_golden_samples():
-    """Golden test: samples decode without damage or unverified fields."""
+    """Golden test: clean samples decode without damage or unverified fields."""
     dec = get_decoder("libra98")
     if dec is None:
         pytest.skip("Preetika's LIBRA-98 decoder is not yet marked ready (src/salvage/formats/libra98.py: ready=False)")
 
-    sample_dir = Path("samples")
-    if not sample_dir.is_dir():
-        pytest.skip("samples/ directory not found")
+    clean_samples = [p for p in Path("samples/libra98").glob("*.l98") if ".damaged-" not in p.name]
+    if not clean_samples:
+        pytest.skip("No clean binary samples available in samples/libra98/")
 
-    samples = [p for p in sample_dir.glob("*") if p.is_file() and p.name != "README.md"]
-    if not samples:
-        pytest.skip("No binary samples available in samples/")
+    ctx = DecodeContext(format="libra98", siblings=[(p.name, p.read_bytes()) for p in clean_samples])
 
-    for s in samples:
-        res = dec.decode(s.name, s.read_bytes())
+    for s in clean_samples:
+        res = dec.decode(s.name, s.read_bytes(), ctx)
         assert len(res.damage) == 0, f"Expected 0 damage entries on clean sample {s.name}"
+        assert len(res.records) > 0
 
 
 def _silent(f: dict, d: dict) -> bool:
