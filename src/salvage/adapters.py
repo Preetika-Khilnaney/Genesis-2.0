@@ -20,6 +20,7 @@ from pathlib import Path
 def get_decoder(name: str):
     """Return the registered Decoder for `name`, or None if not yet ready."""
     try:
+        from salvage import formats  # noqa: F401
         from salvage.core.registry import get
         dec = get(name)
         return dec if dec.ready else None
