@@ -36,9 +36,9 @@ from salvage.core.index import read_index  # noqa: E402
 from salvage.core.model import DamageCause, DamageEntry, Field, FieldStatus, FileResult, Record  # noqa: E402
 from salvage.core.reader import ByteReader, OutOfBounds  # noqa: E402
 from salvage.core.registry import DecodeContext, Decoder, register  # noqa: E402
+from salvage.core.gate import gate_records  # noqa: E402
 from salvage.core.simple import decode_simple  # noqa: E402
 from salvage.core.spec import FieldSpec, FormatSpec, decode_fields  # noqa: E402
-from salvage.evidence.checker import evaluate  # noqa: E402
 from salvage.recovery.rle import VARIANTS, best_variant  # noqa: E402
 from salvage.recovery.xor import best_fixed_string_key, xor  # noqa: E402
 
@@ -54,97 +54,26 @@ PREC_SPEC = FormatSpec(
     record=[FieldSpec("id", "u32"), FieldSpec("name", "str", 20), FieldSpec("enrolled", "dos_date"),
             FieldSpec("grade", "u8"), FieldSpec("flags", "u8"), FieldSpec("pad", "bytes", 2)],
     record_count_field="record_count")
-PREC_HEADER, PREC_RECORD = 20, 30
-
-
-def _layout_holds(b: bytes) -> bool:
-    return len(b) >= 11 and PREC_HEADER + int.from_bytes(b[9:11], "little") * PREC_RECORD == len(b)
-
-
 @register
 class PracticeRec(Decoder):
-    """LIBRA-98 style. A record field is VERIFIED only when all three hold:
-    1. the layout is proven across samples (all-samples rule), and THIS file fits it exactly;
-    2. the record round-trips byte for byte;
-    3. the value is plausible (ids count up by 1, real dates, printable names, zero padding).
-    No checksum here, so anything else stays UNVERIFIED: we cannot prove it."""
+    """LIBRA-98 style: decode_simple reads the fields, core.gate.gate_records decides what is
+    VERIFIED (layout proven on all samples, file fits or record is before the damage,
+    round-trip ok, every check passes). This is exactly how formats/libra98.py should look."""
     name, spec, ready = "practice_rec", PREC_SPEC, True
+    CHECKS = {
+        "id": lambda v, prev: prev is None or v == prev["id"] + 1,
+        "name": lambda v, prev: v.isprintable() and v.strip() != "",
+        "enrolled": lambda v, prev: _date_ok(v),
+        "grade": lambda v, prev: 0 <= v <= 100,
+        "flags": lambda v, prev: v in (0, 1, 2, 3),
+        "pad": lambda v, prev: v == "0000",
+    }
 
     def decode(self, path, data, ctx: DecodeContext | None = None) -> FileResult:
         res = decode_simple(self.spec, path, data)
-        samples = ctx.samples(data) if ctx else [data]
-        # judge the layout on clean-looking siblings; this file is checked on its own below
-        layout = evaluate(self.name, "header 20 + record_count * 30 == file size", samples, _layout_holds,
-                          log=False)
-        fits = _layout_holds(data)
-        if not fits:
-            res.warnings.append("file size does not match header + count * 30: bytes inserted, deleted or cut")
-            # if the count is believable but the file is short, decode_simple already logged TRUNCATED
-            if not any(d.cause == DamageCause.TRUNCATED for d in res.damage):
-                res.damage.append(DamageEntry(PREC_HEADER, len(data), DamageCause.BAD_LENGTH,
-                                              "file size disagrees with record count; record boundaries "
-                                              "cannot be trusted", ["all records"]))
-        proven = layout.held >= 2 and fits
-        for name in ("decoy", "reserved"):
-            if name in res.header:
-                res.header[name].status, res.header[name].note = U, "meaning unknown (looks like a length, is not)"
-        if "record_count" in res.header and not proven:
-            res.header["record_count"].status = U
-        # first pass: which records look intact (round-trip + every field plausible)?
-        intact_flags, prev_id = [], None
-        for rec in res.records:
-            raw = data[rec.offset:rec.offset + PREC_RECORD]
-            rt = len(raw) == PREC_RECORD and bool(rec.fields) and all(f.note == "round-trip ok" for f in rec.fields.values())
-            fv = {k: f.value for k, f in rec.fields.items()}
-            ok = rt and _rec_plausible(fv, prev_id)
-            intact_flags.append(ok)
-            prev_id = fv.get("id")
-        first_bad = next((i for i, ok in enumerate(intact_flags) if not ok), len(intact_flags))
-        # Damage can sit inside the last record that still looks fine (only the NEXT record shows
-        # the shift), so when the file size is off, trust records only up to first_bad - 1.
-        prefix_end = first_bad - 1 if first_bad < len(intact_flags) or not fits else first_bad
-        prev_id = None
-        intact = True     # still before the first sign of damage in this file
-        for rec in res.records:
-            raw = data[rec.offset:rec.offset + PREC_RECORD]
-            ok_rt = len(raw) == PREC_RECORD and rec.fields and all(f.note == "round-trip ok" for f in rec.fields.values())
-            id_ok = prev_id is None or rec.fields["id"].value == prev_id + 1
-            checks = {}
-            for f in rec.fields.values():
-                checks[f.name] = {
-                    "id": id_ok,
-                    "name": f.value.isprintable() and f.value.strip() != "" if isinstance(f.value, str) else False,
-                    "enrolled": _date_ok(f.value),
-                    "grade": 0 <= f.value <= 100 if isinstance(f.value, int) else False,
-                    "flags": f.value in (0, 1, 2, 3) if isinstance(f.value, int) else False,
-                    "pad": f.value == "0000",
-                }[f.name]
-            # damage is local: one implausible field makes the whole record suspect
-            record_ok = all(checks.values())
-            intact = intact and record_ok and ok_rt
-            # file size is off (bytes cut/inserted/deleted): records before the first bad one
-            # are still at their true offsets, because damage only shifts what comes after it
-            prefix_ok = not fits and layout.held >= 2 and intact and rec.index < prefix_end
-            for f in rec.fields.values():
-                plausible = record_ok
-                if (proven or prefix_ok) and ok_rt and plausible:
-                    f.status, f.note = V, ("layout proven on all samples, round-trip ok, plausible" if proven else
-                                           "before the first damaged record; round-trip ok, plausible")
-                else:
-                    f.status = U
-                    f.note = "not proven: " + ", ".join(w for w, bad in (
-                        ("layout", not proven), ("round-trip", not ok_rt), ("implausible value", not plausible)) if bad)
-            prev_id = rec.fields["id"].value if "id" in rec.fields else None
+        gate_records(res, data, self.spec, ctx.samples(data) if ctx else [data], self.CHECKS,
+                     unknown_header=("decoy", "reserved"))
         return res
-
-
-def _rec_plausible(v: dict, prev_id) -> bool:
-    try:
-        return ((prev_id is None or v["id"] == prev_id + 1) and v["name"].isprintable() and v["name"].strip() != ""
-                and _date_ok(v["enrolled"]) and 0 <= v["grade"] <= 100 and v["flags"] in (0, 1, 2, 3)
-                and v["pad"] == "0000")
-    except Exception:
-        return False
 
 
 def _date_ok(s) -> bool:

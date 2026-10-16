@@ -48,6 +48,9 @@ so all four of us can work in parallel from H0.
 ## Shared helpers in core/
 
 - `core/simple.py`: `decode_simple()` for header + repeated-record formats
+- `core/gate.py`: `gate_records()` decides which `decode_simple` fields are VERIFIED (layout proven
+  on all samples, file fits or record is before the damage, exact round trip, per-field checks).
+  Never mark a field verified on round trip alone: without a checksum, damage round-trips too.
 - `core/blocks.py`: `read_blocks()` for marker / length / payload / checksum formats (CRC gate,
   single-bit fix, resync, truncation, damage entries all handled)
 - `core/index.py`: `read_index()` for index-table formats (VAULT, game archives): blobs past the
