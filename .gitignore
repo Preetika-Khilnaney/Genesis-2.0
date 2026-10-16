@@ -8,4 +8,9 @@ out/
 # samples/ and sample-answers/ are our own demo data and ARE committed.
 real-samples/
 tests/fixtures/damaged/
+
 practice/
+
+# Personal study notes, kept local
+notes/
+
