@@ -14,6 +14,7 @@ import argparse
 import datetime as dt
 import functools
 import json
+import math
 import os
 import struct
 import sys
@@ -23,7 +24,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "src"))
 
-from salvage.formats import cvt, documents, ebcdic, lablog, libra98, vault  # noqa: E402
+from salvage.formats import cvt, documents, ebcdic, lablog, libra98, vault, wks  # noqa: E402
 from salvage.recovery.crc import crc16_ccitt  # noqa: E402
 
 S = ROOT / "real-samples" / "samples"
@@ -124,6 +125,41 @@ def wks_tiles(b: bytes) -> bool:
             return p + 4 + L == len(b)
         p += 4 + L
     return False
+
+
+def wks_cells(b: bytes) -> dict:
+    return {r.values["cell"]: r.values for r in wks.WksDecoder().decode("x", b).records}
+
+
+def wks_formulas_recompute(b: bytes) -> bool:
+    """Every decoded formula, evaluated on the decoded cells, gives the cached value 1-2-3 stored."""
+    cells = wks_cells(b)
+    forms = [c for c in cells.values() if c["type"] == "formula"]
+
+    def val(ref):
+        c = cells.get(ref)
+        return c and c.get("value") if c and c["type"] in ("integer", "number") else None
+
+    ok = bool(forms)
+    for c in forms:
+        a, _, z = c.get("formula", "").partition("*")
+        x, y = val(a), val(z)
+        ok &= x is not None and y is not None and math.isclose(x * y, c["cached_value"], rel_tol=1e-9)
+    return ok
+
+
+def wpd_text(b: bytes) -> bytes:
+    end = u32(b, 0x22) if u32(b, 0x22) <= len(b) else len(b)
+    return b[u32(b, 4):end]
+
+
+def ebc_details(b: bytes) -> list[dict]:
+    return [r.values for r in ebcdic.EbcdicDecoder().decode("x", b).records if r.verified is not False]
+
+
+def bravo_split(b: bytes):
+    z = b.index(b"\x1a")
+    return b[:z], documents.BravoDecoder().decode("x", b).metadata.get("format_runs", [])
 
 
 LIBRA_OK = ["s01.dat", "s02.dat", "s03.dat"]          # complete files
@@ -253,6 +289,58 @@ H = [
      lambda b: (lambda p: be16(b, p) * 2 == len(b) - p - 2)((b.index(b"\x1a") + 2) // 2 * 2)),
     ("BRAVO", "run = u16be start, u16be length, u8 looks, u8 font ('Alto users' at 4, length 10)", ["s16.bravo"],
      lambda b: [(r["start"], r["length"]) for r in documents.BravoDecoder().decode("x", b).metadata["format_runs"]] == [(4, 10), (67, 15)]),
+
+    # ---- second pass (real-world formats): cross-checks that do not come from the decoder's own reading
+    ("WKS", "label prefix is one of ' \" ^ \\ (left, right, center, repeat)", WKS,
+     lambda b: all(c.get("alignment") in ("left", "right", "center", "repeat")
+                   for c in wks_cells(b).values() if c["type"] == "label")),
+    ("WKS", "RANGE record bounds every cell (no cell beyond last col/row)", WKS,
+     lambda b: (lambda r, cells: all(c["col"] <= r[2] and c["row"] <= r[3] for c in cells))(
+         struct.unpack_from("<HHHH", b, b.index(b"\x06\x00\x08\x00") + 4), wks_cells(b).values())),
+    ("WKS", "formula bytecode is Lotus RPN: 01 = cell (u16 col, u16 row), 0B = multiply, 03 = return; "
+     "the decoded formula, evaluated on the decoded cells, gives the stored cached value", ["s11.wks", "s13.wks"],
+     wks_formulas_recompute),
+    ("WKS", "formula bytecode is the formula text in ASCII", ["s11.wks", "s13.wks"],
+     lambda b: all(bytes.fromhex(c["formula_raw_hex"]).isascii() and bytes.fromhex(c["formula_raw_hex"])[:1].isalpha()
+                   for c in wks_cells(b).values() if c["type"] == "formula")),
+    ("WKS", "s12 cells written out of row order are placed by their own row field (A5 before B4)", ["s12.wks"],
+     lambda b: [c["cell"] for c in wks_cells(b).values()].index("A5") < [c["cell"] for c in wks_cells(b).values()].index("B4")),
+
+    ("WPD", "0x0A = hard return (paragraph end): paragraphs = number of 0x0A in the text area", ["s14.wpd"],
+     lambda b: len(documents.WpdDecoder().decode("x", b).records) == wpd_text(b).count(b"\x0a")),
+    ("WPD", "0x0D = soft return, read as a space ('due on the' + '15th')", ["s14.wpd"],
+     lambda b: b"the\r15th" in b and any("the 15th" in r.values["text"] for r in documents.WpdDecoder().decode("x", b).records)),
+    ("WPD", "attribute codes come in pairs: C3 attr C3 = on, C4 attr C4 = off, balanced in a complete file", ["s14.wpd"],
+     lambda b: wpd_text(b).count(b"\xc3\x0c\xc3") == wpd_text(b).count(b"\xc4\x0c\xc4") > 0),
+    ("WPD", "0xAA = hard hyphen ('co' AA 'operation' -> 'co-operation')", ["s14.wpd"],
+     lambda b: b"co\xaaoperation" in b and any("co-operation" in r.values["text"] for r in documents.WpdDecoder().decode("x", b).records)),
+    ("WPD", "the hint says some files are password-protected: no kit file sets the key (both are readable)",
+     ["s14.wpd", "s15.wpd"], lambda b: u16(b, 12) == 0 and not documents.WpdDecoder().decode("x", b).metadata["encrypted"]),
+
+    ("BRAVO", "text before ^Z is 7-bit ASCII with CR paragraph ends (no LF)", ["s16.bravo", "s17.bravo"],
+     lambda b: bravo_split(b)[0].isascii() and b"\n" not in bravo_split(b)[0] and b"\r" in bravo_split(b)[0]),
+    ("BRAVO", "every complete format run lies inside the text (start + length <= text length)", ["s16.bravo", "s17.bravo"],
+     lambda b: (lambda t, runs: bool(runs) and all(r["start"] + r["length"] <= len(t) for r in runs))(*bravo_split(b))),
+    ("BRAVO", "format runs start on a word boundary (bold 'Alto users', italic 'Ethernet')", ["s16.bravo", "s17.bravo"],
+     lambda b: (lambda t, runs: all(r["start"] == 0 or t[r["start"] - 1:r["start"]] in b" \r" for r in runs))(*bravo_split(b))),
+
+    ("CVT", "file is a whole number of 254-byte blocks", ["s18.cvt", "s19.cvt"], lambda b: len(b) % 254 == 0),
+    ("CVT", "vlir record table: (0, 0xFF) marks an empty slot (s19 slot 1 is empty)", ["s19.cvt"],
+     lambda b: b[508 + 2:508 + 4] == b"\x00\xff"),
+    ("CVT", "info block author and class are PETSCII text (expected s18 'S. Sam', 'Text Scrap')", ["s18.cvt"],
+     lambda b: cvt._field(b[254:274]).startswith("Text Scrap") and "S. Sam" in cvt.petscii(b[254:330])),
+
+    ("EBCDIC-DUMP", "every dob and run date is a valid calendar date (packed YYYYMMDD)", EBC_FULL + ["s22.000"],
+     lambda b: all(r["dob"] for r in ebc_details(b))),
+    ("EBCDIC-DUMP", "balance sign nibble D = negative (s21 has -125.50, -0.01, -12.07)", ["s21.000"],
+     lambda b: sorted(r["balance"] for r in ebc_details(b) if r["balance"] < 0) == [-125.5, -12.07, -0.01]),
+    ("EBCDIC-DUMP", "gpa is packed with 2 decimals and lies in 0.00-4.00", EBC_FULL + ["s22.000"],
+     lambda b: all(0 <= r["gpa"] <= 4 for r in ebc_details(b))),
+    ("EBCDIC-DUMP", "student ids are 6 EBCDIC digits and unique within a tape", EBC_FULL + ["s22.000"],
+     lambda b: (lambda ids: all(i.isdigit() and len(i) == 6 for i in ids) and len(set(ids)) == len(ids))(
+         [r["student_id"] for r in ebc_details(b)])),
+    ("EBCDIC-DUMP", "s22 has no trailer: the tape is cut inside detail record 5", ["s22.000"],
+     lambda b: b"\xe3" not in b[-12:-8] and ebcdic.EbcdicDecoder().decode("x", b).metadata["trailer_count"] is None),
 
     ("WAD", "PWAD header: i32 count, i32 directory offset; 16-byte entries end at EOF", ["s23.wad"],
      lambda b: struct.unpack_from("<i", b, 8)[0] + 16 * struct.unpack_from("<i", b, 4)[0] == len(b)),
