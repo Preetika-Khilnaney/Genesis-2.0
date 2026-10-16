@@ -16,9 +16,9 @@ sleep 1
 
 # ── Step 1: Clean LIBRA-98 run ────────────────────────────────────────────────
 echo ""
-echo "[1/4] CLEAN LIBRA-98 DECODE — every field verified by round-trip"
+echo "[1/5] CLEAN LIBRA-98 DECODE — every field verified by round-trip"
 echo "  Running: docker run --network none salvage samples/libra98 $OUT/libra98"
-mkdir -p "$OUT/libra98" "$OUT/lablog_damaged" "$OUT/unknown"
+mkdir -p "$OUT/libra98" "$OUT/damaged" "$OUT/unknown"
 docker run --rm --network none \
   -v "$(pwd)/$SAMPLES/libra98:/in:ro" \
   -v "$(pwd)/$OUT/libra98:/out" \
@@ -29,36 +29,40 @@ python3 -c "
 import json, sys
 r = json.load(open('$OUT/libra98/report.json'))
 for f in r.get('files', []):
-    print(f'  {f[\"source_file\"]}: format={f[\"format\"]}, records={f[\"records\"]}, status={f[\"field_status\"]}')
+    if not f.get('damage'):
+        print(f'  {f[\"source_file\"]}: format={f[\"format\"]}, records={f[\"records\"]}, status={f[\"field_status\"]}')
 " 2>/dev/null || echo "  (no libra98 samples yet)"
 sleep 1
 
 # ── Step 2: Damaged file — damage report ─────────────────────────────────────
 echo ""
-echo "[2/4] DAMAGED FILE — lost ranges and causes"
+echo "[2/5] DAMAGED FILE — lost ranges and causes"
 DAMAGED_DIR="tests/fixtures/damaged"
-if [ -d "$DAMAGED_DIR" ] && ls "$DAMAGED_DIR"/*.bin.trunc* 2>/dev/null | head -1; then
-  docker run --rm --network none \
-    -v "$(pwd)/$DAMAGED_DIR:/in:ro" \
-    -v "$(pwd)/$OUT/lablog_damaged:/out" \
-    "$IMAGE" /in /out 2>&1 || true
-  python3 -c "
+if [ ! -d "$DAMAGED_DIR" ]; then
+  DAMAGED_DIR="$SAMPLES/libra98"
+fi
+docker run --rm --network none \
+  -v "$(pwd)/$DAMAGED_DIR:/in:ro" \
+  -v "$(pwd)/$OUT/damaged:/out" \
+  "$IMAGE" /in /out 2>&1 || true
+python3 -c "
 import json
-r = json.load(open('$OUT/lablog_damaged/report.json'))
+r = json.load(open('$OUT/damaged/report.json'))
+shown = 0
 for f in r.get('files', []):
     if f.get('damage'):
         print(f'  {f[\"source_file\"]}: {len(f[\"damage\"])} damage entries')
         for d in f['damage']:
             print(f'    bytes {d[\"start\"]}-{d[\"end\"]}: cause={d[\"cause\"]}  {d[\"detail\"]}')
-" 2>/dev/null || echo "  (no damaged fixtures yet)"
-else
-  echo "  (damaged fixtures not generated yet — run 'make test' first)"
-fi
+        shown += 1
+        if shown >= 3:
+            break
+" 2>/dev/null || echo "  (no damaged files shown)"
 sleep 1
 
 # ── Step 3: Unknown file — entropy map ───────────────────────────────────────
 echo ""
-echo "[3/4] UNKNOWN FILE — entropy map and strings"
+echo "[3/5] UNKNOWN FILE — entropy map and strings"
 echo "some_random_data" | base64 > /tmp/demo_unknown.bin
 docker run --rm --network none \
   -v "/tmp:/in:ro" \
@@ -75,7 +79,7 @@ sleep 1
 
 # ── Step 4: Receipt tamper check ─────────────────────────────────────────────
 echo ""
-echo "[4/4] RECEIPT CHAIN — tamper-evident audit trail"
+echo "[4/5] RECEIPT CHAIN — tamper-evident audit trail"
 if [ -f "$OUT/libra98/receipts.jsonl" ]; then
   echo "  Verifying clean chain..."
   PYTHONPATH=src python3 -c "
@@ -99,6 +103,25 @@ print('  Tampered chain:', 'PASS (unexpected!)' if ok else 'FAIL (detected — c
 else
   echo "  (no receipts.jsonl yet — run with real samples)"
 fi
+sleep 1
+
+# ── Step 5: Corruption lab measured numbers ───────────────────────────────────
+echo ""
+echo "[5/5] CORRUPTION LAB — empirical risk calibration & measured false recoveries"
+PYTHONPATH=src python3 -m salvage.corruption_lab.calibrate --runs 3 --out "$OUT/corruption_lab_results.json"
+echo ""
+echo "  Measured calibration results ($OUT/corruption_lab_results.json):"
+python3 -c "
+import json
+data = json.load(open('$OUT/corruption_lab_results.json'))
+totals = data.get('totals', {})
+print(f'  Tested files:          {totals.get(\"tested_files\")}')
+print(f'  Total fields:          {totals.get(\"total_fields\")}')
+print(f'  Verified fields:       {totals.get(\"verified_fields\")}')
+print(f'  False recoveries:      {totals.get(\"false_recoveries\")}')
+print(f'  Measured false-rec %:  {totals.get(\"false_recovery_rate\") * 100:.2f}%')
+print(f'  Measured false-loss %: {totals.get(\"false_loss_rate\") * 100:.2f}%')
+"
 
 echo ""
 echo "============================================================"

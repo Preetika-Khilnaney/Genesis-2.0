@@ -26,9 +26,22 @@ The tool always exits with code 0, including for empty, unknown or damaged files
 | --- | --- |
 | `<input>.json` | One per input: header and records, every field with a status |
 | `report.json` | Run summary: format per file, status counts, damage byte ranges and causes, errors |
-| `receipts.jsonl` | SHA-256 hash chain, one entry per input (tamper-evident) |
+| `receipts.jsonl` | SHA-256 hash chain, one entry per input (tamper-evident audit trail) |
 
 Field statuses: `verified` (backed by checksum / round-trip / evidence), `corrected` (provable single-bit fix), `unverified` (decoded, not proven), `lost` (no value, never guessed).
+
+### Verifying Outputs & Audit Trail
+
+```sh
+# 1. Verify cryptographic hash chain on receipts.jsonl (returns True/False)
+python3 -c "from salvage.output.receipts import verify_chain; from pathlib import Path; assert verify_chain(Path('out/receipts.jsonl')), 'Broken hash chain!'"
+
+# 2. Strict JSON schema validation across all outputs and receipts
+PYTHONPATH=src python3 -m salvage.output.schema_validate out
+
+# 3. Full gate check (Docker offline build, run with --network none, schema validation)
+make gate
+```
 
 ## How it works
 

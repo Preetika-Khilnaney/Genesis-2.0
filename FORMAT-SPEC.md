@@ -1,29 +1,30 @@
 # FORMAT-SPEC
 
+<!-- BEGIN GENERATED -->
 Generated from the spec library (`src/salvage/formats/`). Do not edit by hand:
 change the FormatSpec and regenerate with `make spec`.
 
 Field statuses used in outputs: `verified`, `corrected`, `unverified`, `lost`.
+<!-- END GENERATED -->
 
+<!-- BEGIN GENERATED game_archive -->
 ## game_archive
-
-TODO
 
 - Magic: `none` at offset 0
 - Endianness: little
 
 _Status: in progress (decoder not ready)._
-
+<!-- END GENERATED game_archive -->
+<!-- BEGIN GENERATED lablog -->
 ## lablog
-
-TODO
 
 - Magic: `none` at offset 0
 - Endianness: little
 - Checksum: TODO: algorithm, coverage, where it is stored
 
 _Status: in progress (decoder not ready)._
-
+<!-- END GENERATED lablog -->
+<!-- BEGIN GENERATED libra98 -->
 ## libra98
 
 Header of 20 bytes, then record_count fixed-size records of 30 bytes. No checksum, so values are verified by the layout fitting the file exactly, an exact round trip and per-field checks (ids count up by 1, readable names, real dates, scores 0-100). STAND-IN layout from our own samples; redo from the real samples.
@@ -34,7 +35,7 @@ Header of 20 bytes, then record_count fixed-size records of 30 bytes. No checksu
 
 ### Header
 
-| Field | Type | Length | Description | Evidence |
+| Field | Type | Size | Description | Evidence |
 | --- | --- | --- | --- | --- |
 | magic | bytes | 8 | file signature 'LIBRA-98' | FIELD-LOG: same in all samples |
 | version | u8 | 1 | format version, 1 in every sample | FIELD-LOG: constant 1; kept out of the magic so other versions still match |
@@ -45,7 +46,7 @@ Header of 20 bytes, then record_count fixed-size records of 30 bytes. No checksu
 
 ### Record
 
-| Field | Type | Length | Description | Evidence |
+| Field | Type | Size | Description | Evidence |
 | --- | --- | --- | --- | --- |
 | id | u32 | 4 | record id, counts up by 1 from 1000 | FIELD-LOG: counts up by 1 in every undamaged sample |
 | name | str | 20 | name, NUL-padded | FIELD-LOG: printable text + NUL padding in every undamaged sample |
@@ -55,21 +56,20 @@ Header of 20 bytes, then record_count fixed-size records of 30 bytes. No checksu
 | pad | bytes | 2 | zero padding | FIELD-LOG: zero in every sample |
 
 - decoy_15 looks like a length field but every length meaning was rejected; it stays unverified.
-
+<!-- END GENERATED libra98 -->
+<!-- BEGIN GENERATED realworld -->
 ## realworld
 
-TODO
-
 - Magic: `none` at offset 0
 - Endianness: little
 
 _Status: in progress (decoder not ready)._
-
+<!-- END GENERATED realworld -->
+<!-- BEGIN GENERATED vault -->
 ## vault
 
-TODO
-
 - Magic: `none` at offset 0
 - Endianness: little
 
 _Status: in progress (decoder not ready)._
+<!-- END GENERATED vault -->
