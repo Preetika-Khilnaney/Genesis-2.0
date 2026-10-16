@@ -9,7 +9,8 @@ The documentation is a starting hypothesis; where the bytes disagree, the bytes 
   Cells start with u8 format, u16 col, u16 row:
   0x000C BLANK    -                                    0x000D INTEGER  i16
   0x000E NUMBER   f64                                  0x000F LABEL    prefix char + NUL text
-  0x0010 FORMULA  f64 cached value, u16 length, formula bytes (kept as hex: formula_raw_hex)
+  0x0010 FORMULA  f64 cached value, u16 length, formula bytes (kept as hex: formula_raw_hex; also
+                  decoded to text, e.g. "B2*C2", when every opcode is known: see decode_formula)
   Label prefix: ' left, " right, ^ center, \\ repeat.
   Format byte: bit7 protected, bits 4-6 type (0 fixed, 1 sci, 2 currency, 3 percent, 4 comma,
   7 special), bits 0-3 decimals or special subtype (special 2/3/4 = dates, serial from 1899-12-30).
@@ -75,6 +76,77 @@ def _serial_to_iso(v: float) -> str | None:
 
 
 EXACT_LEN = {BOF: 2, EOF: 0, RANGE: 8, COLW: 3, BLANK: 5, INTEGER: 7, NUMBER: 13}
+
+# Lotus formula bytecode (reverse Polish). Parentheses are stored explicitly (0x04), so the infix
+# text is rebuilt without guessing precedence.
+BINOPS = {0x09: "+", 0x0A: "-", 0x0B: "*", 0x0C: "/", 0x0D: "^", 0x0E: "=", 0x0F: "<>", 0x10: "<=",
+          0x11: ">=", 0x12: "<", 0x13: ">", 0x14: "#AND#", 0x15: "#OR#"}
+UNOPS = {0x08: "-", 0x16: "#NOT#", 0x17: "+"}
+VARFUNCS = {0x50: "@SUM", 0x51: "@AVG", 0x52: "@COUNT", 0x53: "@MIN", 0x54: "@MAX"}
+
+
+def _ref(col: int, row: int, here: tuple[int, int]) -> str | None:
+    """Cell reference: bit 15 set = relative, low 14 bits a signed offset from the formula cell."""
+    def axis(v: int, base: int) -> int:
+        if v & 0x8000:
+            off = v & 0x3FFF
+            return base + (off - 0x4000 if off & 0x2000 else off)
+        return v & 0x3FFF
+    c, r = axis(col, here[0]), axis(row, here[1])
+    return f"{col_name(c)}{r + 1}" if c >= 0 and r >= 0 else None
+
+
+def decode_formula(code: bytes, here: tuple[int, int] = (0, 0)) -> str | None:
+    """Rebuild the formula text ('B2*C2'). Returns None unless every opcode is known and the
+    expression ends with exactly one value: a partial decode is never presented as the formula."""
+    st: list[str] = []
+    i = 0
+    try:
+        while i < len(code):
+            op = code[i]
+            i += 1
+            if op == 0x00:
+                st.append(repr(struct.unpack_from("<d", code, i)[0]))
+                i += 8
+            elif op == 0x01:
+                c, r = struct.unpack_from("<HH", code, i)
+                i += 4
+                ref = _ref(c, r, here)
+                if ref is None:
+                    return None
+                st.append(ref)
+            elif op == 0x02:
+                c0, r0, c1, r1 = struct.unpack_from("<HHHH", code, i)
+                i += 8
+                a, z = _ref(c0, r0, here), _ref(c1, r1, here)
+                if a is None or z is None:
+                    return None
+                st.append(f"{a}..{z}")
+            elif op == 0x03:
+                return st[0] if len(st) == 1 and i == len(code) else None
+            elif op == 0x04:
+                st.append(f"({st.pop()})")
+            elif op == 0x05:
+                st.append(str(struct.unpack_from("<h", code, i)[0]))
+                i += 2
+            elif op in BINOPS:
+                b, a = st.pop(), st.pop()
+                st.append(f"{a}{BINOPS[op]}{b}")
+            elif op in UNOPS:
+                st.append(f"{UNOPS[op]}{st.pop()}")
+            elif op in VARFUNCS:
+                n = code[i]
+                i += 1
+                if n == 0 or n > len(st):
+                    return None
+                args = st[-n:]
+                del st[-n:]
+                st.append(f"{VARFUNCS[op]}({','.join(args)})")
+            else:
+                return None
+    except (IndexError, struct.error):
+        return None
+    return None                                         # no return opcode: incomplete
 
 
 @register
@@ -149,7 +221,8 @@ class WksDecoder(Decoder):
                        lossy=False)
             p, n = end, n + 1
         if not seen_eof and not any(d.cause == D.TRUNCATED for d in res.damage):
-            damage(res, D.TRUNCATED, len(b), len(b), "EOF record missing", lossy=False)
+            damage(res, D.TRUNCATED, len(b), len(b), "EOF record missing: the file ends at a record "
+                   "boundary, so any later cells are lost")
         if meta["version_code"] is None:
             res.status = "failed"
         return res
@@ -180,7 +253,11 @@ class WksDecoder(Decoder):
             cached, flen = struct.unpack_from("<dH", rest)
             if len(rest) != 10 + flen:
                 return None
-            v.update(type="formula", cached_value=cached, formula_raw_hex=rest[10:10 + flen].hex())
+            code = rest[10:10 + flen]
+            v.update(type="formula", cached_value=cached, formula_raw_hex=code.hex())
+            text = decode_formula(code, (col, row))
+            if text is not None:
+                v["formula"] = text
         nf = _number_format(fmt)
         if nf and op != LABEL:
             v["number_format"] = nf
