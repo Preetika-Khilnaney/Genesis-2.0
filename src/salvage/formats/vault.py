@@ -16,6 +16,9 @@ Layout, worked out from real-samples s08-s10 and expected_outputs/s08 (evidence 
 
 Verification: an entry is verified when its CRC-32 matches the decoded data and the decoded size
 matches the index. If XOR and RLE could apply in either order, the CRC decides which is right.
+Names and type bytes are not covered by the CRC: a name must look like a file name, and its
+extension must agree with the type byte (.txt text, .bin binary, .bmp8 bitmap, as on every real
+entry); a flip that keeps a plausible name cannot be seen (tools/false_recovery.py measures it).
 """
 from __future__ import annotations
 
@@ -119,6 +122,19 @@ def _plausible_name(name: str) -> bool:
             and name.count(".") == 1 and not name.startswith(".") and not name.endswith("."))
 
 
+# Extension -> type, as seen on every entry of every real sample (s08-s10: 9 entries; FIELD-LOG).
+# The name table has no checksum, so this is one of the few checks a damaged name or type byte
+# can fail. Only extensions seen in the samples are checked; any other extension is not judged.
+EXT_TYPE = {"txt": 1, "bin": 3, "bmp8": 2}
+
+
+def _ext_agrees(name: str | None, typ: int) -> bool:
+    if not name or "." not in name:
+        return True
+    want = EXT_TYPE.get(name.rsplit(".", 1)[1].lower())
+    return want is None or want == typ
+
+
 def _single_bit_fix(stored: bytes, flags: int, key: int, crc: int, limit: int = 4096) -> tuple[bytes, int, str] | None:
     """Exactly one flipped bit in the stored data that makes the CRC-32 match -> (payload, bit, how).
     CRC-32 pins a single-bit error down uniquely, so a unique hit is a proven repair."""
@@ -186,6 +202,8 @@ class VaultDecoder(Decoder):
                     "sha256": None, "compressed": bool(efl & 1)}
             if typ not in TYPES:
                 issues.append("invalid_value")
+            elif not _ext_agrees(name, typ) and "invalid_value" not in issues:
+                issues.append("invalid_value")      # extension and type byte disagree: one is damaged
             if boff + 4 + slen > len(b) or slen < 4:
                 issues.append("oob_pointer" if boff >= len(b) else "truncated")
                 damage(res, D.OOB_POINTER if boff >= len(b) else D.TRUNCATED, o if boff >= len(b) else boff,
