@@ -92,3 +92,19 @@ def test_checksum_covering_whole_block():
 def test_structure_score_for_fingerprint_fallback():
     assert block_structure_score(CLEAN, LAYOUT) == 1.0
     assert block_structure_score(bytes(range(256)), LAYOUT) == 0.0
+
+
+def test_zeroed_length_and_checksum_is_not_verified():
+    """crc32(b"") == 0, so a block whose length and CRC were zeroed 'passes'. It proves nothing."""
+    data = bytearray(CLEAN)
+    b1 = len(block(0, PAYLOADS[0]))
+    data[b1 + 5:b1 + 7] = b"\x00\x00"                   # length -> 0
+    data[b1 + 7:b1 + 11] = b"\x00\x00\x00\x00"          # first 4 payload bytes, now read as the CRC
+    scan = read_blocks(bytes(data), LAYOUT)
+    assert scan.blocks[1].payload == b"" and scan.blocks[1].status == FieldStatus.UNVERIFIED
+    assert all(b.status != FieldStatus.VERIFIED or b.payload for b in scan.blocks)
+
+
+def test_header_fields_outside_checksum_are_unverified():
+    scan = read_blocks(CLEAN, LAYOUT)                   # checksum covers the payload only
+    assert scan.blocks[0].header["seq"].status == FieldStatus.UNVERIFIED
