@@ -93,6 +93,7 @@ class FileResult:
     damage: list[DamageEntry] = field(default_factory=list)
     warnings: list[str] = field(default_factory=list)
     error: str | None = None         # set when decoding crashed; the run still exits 0
+    input_sha256: str | None = None  # SHA-256 of input file bytes
     extra: dict[str, Any] = field(default_factory=dict)  # format-specific (e.g. unknown-file entropy map)
 
     def status_counts(self) -> dict[str, int]:
@@ -109,6 +110,7 @@ class FileResult:
             "source_file": self.source_file,
             "format": self.format,
             "confidence": round(self.confidence, 3),
+            "input_sha256": self.input_sha256,
             "header": {k: v.to_dict() for k, v in self.header.items()},
             "records": [r.to_dict() for r in self.records],
             "damage": [d.to_dict() for d in self.damage],

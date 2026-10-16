@@ -3,9 +3,19 @@ __pycache__/
 .pytest_cache/
 .venv/
 out/
+demo_out/
 *.egg-info/
 # Real samples (the organisers' files) may be sensitive: they stay local, never committed.
 # samples/ and sample-answers/ are our own demo data and ARE committed.
 real-samples/
 tests/fixtures/damaged/
+
 practice/
+
+# Personal study notes, kept local
+notes/
+
+.hypothesis/
+
+# Vendor wheels are large binaries; only track the directory placeholder.
+vendor/wheels/*.whl
