@@ -1,7 +1,8 @@
 """LIBRA-98 (THE GATE). OWNERS: Preetika (decoder) + Bhupesh (field evidence).
 
 Steps:
- 1. Open the samples with `python tools/hexview.py samples/libra98/*` and compare them.
+ 1. Run `python3 tools/survey.py samples/libra98/` for magic, record count, header/record
+    sizes and record columns, then confirm each in `python3 tools/hexview.py <file>`.
  2. Fill in LIBRA98_SPEC below (every field, with desc + evidence).
  3. Log every hypothesis in FIELD-LOG.md, including rejected ones.
  4. Set ready = True, run `make test` and `./salvage samples out`.

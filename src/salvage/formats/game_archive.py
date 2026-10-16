@@ -1,6 +1,7 @@
 """Game archive (at least one). OWNER: Khushi (recovery).
 
-Same building blocks as VAULT: index table checks, compression, obfuscation.
+Same building blocks as VAULT: core.index.read_index for the index table, recovery.rle /
+recovery.xor for the blobs. Format picked by H12.
 TODO: rename this module/decoder to the actual archive format once picked.
 """
 from __future__ import annotations
