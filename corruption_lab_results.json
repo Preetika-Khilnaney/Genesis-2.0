@@ -1,0 +1,62 @@
+{
+  "formats": {
+    "libra98": {
+      "decoder_ready": true,
+      "variants_tested": 36,
+      "total_fields": 1032,
+      "verified_fields": 290,
+      "false_recoveries": 33,
+      "false_losses": 0,
+      "false_recovery_rate": 0.1138,
+      "false_loss_rate": 0.0
+    },
+    "lablog": {
+      "decoder_ready": false,
+      "variants_tested": 36,
+      "total_fields": 0,
+      "verified_fields": 0,
+      "false_recoveries": 0,
+      "false_losses": 0,
+      "false_recovery_rate": 0.0,
+      "false_loss_rate": 0.0
+    },
+    "vault": {
+      "decoder_ready": false,
+      "variants_tested": 36,
+      "total_fields": 0,
+      "verified_fields": 0,
+      "false_recoveries": 0,
+      "false_losses": 0,
+      "false_recovery_rate": 0.0,
+      "false_loss_rate": 0.0
+    },
+    "wks": {
+      "decoder_ready": false,
+      "variants_tested": 36,
+      "total_fields": 0,
+      "verified_fields": 0,
+      "false_recoveries": 0,
+      "false_losses": 0,
+      "false_recovery_rate": 0.0,
+      "false_loss_rate": 0.0
+    },
+    "pak": {
+      "decoder_ready": false,
+      "variants_tested": 36,
+      "total_fields": 0,
+      "verified_fields": 0,
+      "false_recoveries": 0,
+      "false_losses": 0,
+      "false_recovery_rate": 0.0,
+      "false_loss_rate": 0.0
+    }
+  },
+  "totals": {
+    "tested_files": 180,
+    "total_fields": 1032,
+    "verified_fields": 290,
+    "false_recoveries": 33,
+    "false_recovery_rate": 0.1138,
+    "false_loss_rate": 0.0
+  }
+}
