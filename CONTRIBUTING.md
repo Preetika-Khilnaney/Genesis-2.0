@@ -5,7 +5,7 @@
 | Person | Owns | Files |
 | --- | --- | --- |
 | Preetika | Core engine, CLI, shared interfaces, LIBRA-98, integration | `cli.py`, `core/`, `formats/libra98.py` |
-| Khushi | Recovery: CRC gate, **single-bit correction**, resync, LABLOG, VAULT, game archive | `recovery/`, `core/blocks.py` (with Preetika), `formats/lablog.py`, `formats/vault.py`, `formats/game_archive.py` |
+| Khushi | Recovery: CRC gate, **single-bit correction**, resync, LABLOG, VAULT, game archive (Quake PAK) | `recovery/`, `core/blocks.py` (with Preetika), `formats/lablog.py`, `formats/vault.py`, `formats/pak.py` |
 | Bhupesh | Evidence: field meanings, checker, FIELD-LOG, **real-world format** | `evidence/`, `formats/realworld.py`, LIBRA-98 field evidence |
 | Manas | Delivery: outputs, report.json, receipts, FORMAT-SPEC, tests, corruption tool (truncate, bit flip, zero, insert, delete), Docker, README | `output/`, `tests/`, `tools/corrupt.py`, `Dockerfile` |
 
@@ -105,7 +105,7 @@ so all four of us can work in parallel from H0.
 - Branch per task: `preetika/libra98`, `khushi/lablog-crc`, `bhupesh/checker`, `manas/report`.
 - Small PRs into `main`; `make test` must pass (CI runs it).
 - Pull `main` before you start and before you open a PR.
-- **Game archive choice is decided by H12** (Khushi picks the format from the samples; until
-  then `formats/game_archive.py` stays a stub with `ready = False`).
+- **Game archive choice is decided by H12**: Khushi picked **Quake PAK** (`formats/pak.py`), the only
+  game-archive samples in hand and shaped like VAULT (index + blobs); reason logged in FIELD-LOG.
 - **Hour 8 checkpoint:** LIBRA-98 passes through the CLI in Docker, or everyone helps until it does.
 - Cut order if behind: receipts, real-world format, game archive. Never cut LABLOG, damage reports or the logs.

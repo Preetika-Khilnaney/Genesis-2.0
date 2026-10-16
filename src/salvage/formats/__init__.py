@@ -2,4 +2,4 @@
 
 To add a format: create a module here with a @register'd Decoder, then import it below.
 """
-from . import game_archive, lablog, libra98, realworld, vault  # noqa: F401
+from . import lablog, libra98, pak, realworld, vault  # noqa: F401

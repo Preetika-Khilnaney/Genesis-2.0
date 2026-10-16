@@ -7,14 +7,6 @@ change the FormatSpec and regenerate with `make spec`.
 Field statuses used in outputs: `verified`, `corrected`, `unverified`, `lost`.
 <!-- END GENERATED -->
 
-<!-- BEGIN GENERATED game_archive -->
-## game_archive
-
-- Magic: `none` at offset 0
-- Endianness: little
-
-_Status: in progress (decoder not ready)._
-<!-- END GENERATED game_archive -->
 <!-- BEGIN GENERATED lablog -->
 ## lablog
 
@@ -79,6 +71,34 @@ Header of 20 bytes, then record_count fixed-size records of 30 bytes. No checksu
 
 - decoy_15 looks like a length field but every length meaning was rejected; it stays unverified.
 <!-- END GENERATED libra98 -->
+<!-- BEGIN GENERATED pak -->
+## pak
+
+Quake PACK archive: a 12-byte header pointing at a directory stored at the END of the file; the blobs sit between the header and the directory. No checksum and no compression, so blob contents are reported but never verified. Real public format; check it against the real samples.
+
+- Magic: `50 41 43 4b` at offset 0
+- Endianness: little
+
+### Header
+
+| Field | Type | Size | Description | Evidence |
+| --- | --- | --- | --- | --- |
+| magic | bytes | 4 | file signature 'PACK' | FIELD-LOG: same in all 6 samples |
+| dir_offset | i32 | 4 | offset of the directory | FIELD-LOG: dir_offset + dir_length == file size in every sample |
+| dir_length | i32 | 4 | directory length in bytes (64 per entry) | FIELD-LOG: varies between files; a multiple of 64 |
+
+### Record
+
+| Field | Type | Size | Description | Evidence |
+| --- | --- | --- | --- | --- |
+| name | str | 56 | file path, NUL-padded | FIELD-LOG: clean NUL-padded text in every entry; not XORed |
+| offset | i32 | 4 | blob offset | FIELD-LOG: blobs tile 12..directory exactly |
+| size | i32 | 4 | blob size | FIELD-LOG: sizes vary; blobs tile exactly |
+| data | bytes | var | blob content (text when printable, else hex); never verified | FIELD-LOG: no checksum, compression or packed size covers it |
+
+- The directory is found at the end of the file when the header's offset disagrees with the file size.
+- Blob contents stay unverified: nothing in the format can prove them.
+<!-- END GENERATED pak -->
 <!-- BEGIN GENERATED realworld -->
 ## realworld
 
