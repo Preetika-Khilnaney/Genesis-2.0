@@ -5,9 +5,12 @@
 | Person | Owns | Files |
 | --- | --- | --- |
 | Preetika | Core engine, CLI, shared interfaces, LIBRA-98, integration | `cli.py`, `core/`, `formats/libra98.py` |
-| Khushi | Recovery: CRC gate, resync, LABLOG, VAULT, game archive | `recovery/`, `formats/lablog.py`, `formats/vault.py`, `formats/game_archive.py` |
-| Bhupesh | Evidence: field meanings, checker, FIELD-LOG, real-world format | `evidence/`, `formats/realworld.py`, LIBRA-98 field evidence |
-| Manas | Delivery: outputs, report.json, receipts, FORMAT-SPEC, tests, Docker, README | `output/`, `tests/`, `tools/corrupt.py`, `Dockerfile` |
+| Khushi | Recovery: CRC gate, **single-bit correction**, resync, LABLOG, VAULT, game archive | `recovery/`, `core/blocks.py` (with Preetika), `formats/lablog.py`, `formats/vault.py`, `formats/game_archive.py` |
+| Bhupesh | Evidence: field meanings, checker, FIELD-LOG, **real-world format** | `evidence/`, `formats/realworld.py`, LIBRA-98 field evidence |
+| Manas | Delivery: outputs, report.json, receipts, FORMAT-SPEC, tests, corruption tool (truncate, bit flip, zero, insert, delete), Docker, README | `output/`, `tests/`, `tools/corrupt.py`, `Dockerfile` |
+
+Single-bit correction lives in `recovery/crc.py` (`single_bit_fix`) and is applied by `core/blocks.py`.
+Khushi owns its behaviour; Preetika only reviews changes to `core/blocks.py` because other formats use it.
 
 ## Shared interfaces (change only after telling the team)
 
@@ -15,7 +18,21 @@
 - `core/spec.py`: `FieldSpec`, `FormatSpec`
 - `core/registry.py`: `Decoder` + `@register` + `DecodeContext` (siblings of the same format)
 
-Code against these and you never wait on anyone.
+- `core/blocks.py`: `BlockLayout`, `read_blocks`
+
+These are already written and agreed at H0. Code against these and you never wait on anyone.
+
+## How a format is written
+
+A format is **data, not a parser**. Each `formats/*.py` file is:
+
+1. a `FormatSpec` (magic, header fields, record fields, each with `desc` and `evidence`), and
+2. a thin `Decoder.decode()` that calls the shared helpers: `core.simple.decode_simple` for
+   header + records, or `core.blocks.read_blocks` for block formats, plus format-specific steps
+   (RLE, XOR key, index table) from `recovery/`.
+
+Nobody writes their own byte-reading loop or their own JSON. The interfaces above are fixed,
+so all four of us can work in parallel from H0.
 
 ## Adding a format
 
@@ -39,8 +56,13 @@ Code against these and you never wait on anyone.
 - **Never invent data.** Unproven = `unverified`. Unreadable = `lost` with value `None`.
 - **Never crash.** Use `ByteReader` (bounds-checked). Turn `OutOfBounds` into a `DamageEntry`.
 - **Verified needs evidence:** checksum pass, round-trip match, or an accepted checker verdict.
-- **Log every hypothesis**, including failures, as you go:
+- **Log every hypothesis from H1**, including failures, as you go. Everyone logs, not only Bhupesh:
   `python3 tools/log.py <format> "<hypothesis>" "<evidence>" accepted|rejected|open --by <name>`
+  Bhupesh reviews FIELD-LOG.md at the end; he does not write other people's entries.
+- **How a field is accepted today:** the all-samples rule in `evidence/checker.py`. A guess is
+  accepted only if it holds on every sample (at least 2); one counterexample rejects it.
+  MDL scoring and e-values at 20:1 are the design for the next version, not today's build,
+  so do not claim them in the demo as implemented.
 - **No network, no new runtime dependencies** (standard library only).
 - **Deterministic output.** Seed anything random.
 
@@ -49,5 +71,7 @@ Code against these and you never wait on anyone.
 - Branch per task: `preetika/libra98`, `khushi/lablog-crc`, `bhupesh/checker`, `manas/report`.
 - Small PRs into `main`; `make test` must pass (CI runs it).
 - Pull `main` before you start and before you open a PR.
+- **Game archive choice is decided by H12** (Khushi picks the format from the samples; until
+  then `formats/game_archive.py` stays a stub with `ready = False`).
 - **Hour 8 checkpoint:** LIBRA-98 passes through the CLI in Docker, or everyone helps until it does.
 - Cut order if behind: receipts, real-world format, game archive. Never cut LABLOG, damage reports or the logs.
