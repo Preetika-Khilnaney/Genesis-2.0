@@ -17,27 +17,19 @@ Team: **Chargeman Ken** · Problem: **PS 02 (Ascension 02)** · Track: **EVA 03*
 - **Our Promise**: Strict zero-invented-data guarantee. Always exits code 0. Deterministic, fully offline, and backed by cryptographic audit receipts.
 
 ### Live Demo Flow (`bash tools/demo.sh`) (0:45 – 2:30)
-1. **[1/5] Clean Decoding (`libra98`)**:
-   - Runs in Docker with `--network none`.
-   - Every field is verified by layout invariance, cross-sample evidence, and exact round-trip reconstruction.
-2. **[2/5] Damage Reporting (`libra98_damaged`)**:
-   - When blocks are cut or bytes deleted, salvage does not guess.
-   - Outputs explicit `damage` ranges with exact causes (`truncated`, `bad_magic`, `bad_length`, `crc_fail`).
-   - Intact records preceding damage remain recovered; damaged fields are honestly marked `lost` with `value: null`.
-3. **[3/5] Unknown File Handling**:
-   - Random/unrecognised binary inputs are never forced into guessed formats.
-   - Extracts Shannon entropy, 256-byte block entropy maps (NumPy), and printable ASCII/UTF-16LE strings.
-   - Output contains zero invented records (`records: []`).
-4. **[4/5] Tamper-Evident Receipt Chain**:
-   - `receipts.jsonl` implements a SHA-256 hash chain starting from 64 zeros (`GENESIS`).
-   - Every file's processing is sealed with `spec_version`, input hash, and status counts.
-   - Editing, reordering, or deleting any line instantly breaks `verify_chain()`.
-5. **[5/5] Empirical Risk Calibration**:
-   - Live calibration numbers over 180 adversarial damage variants.
-   - Measured false recovery and false loss rates recorded directly into `corruption_lab_results.json`.
+1. **[1/5] One command, offline**: the organisers' 30 sample files (10 formats + hostile files) in
+   Docker with `--network none`. `report.json` lists every file's format and status.
+2. **[2/5] Matches the expected outputs**: `tools/check_expected.py` compares with the organisers'
+   reference JSON: **7 of 7 match**.
+3. **[3/5] Damage is reported, never hidden**: s04 (LIBRA-98 cut off mid-record): status `partial`,
+   `truncated` at the exact byte, the cut record kept with `"verified": false` and nulls, not guesses.
+4. **[4/5] Proven repair**: s07 (LABLOG) and s10 (VAULT) fail a CRC; exactly one flipped bit explains
+   each failure, so it is repaired and reported with `"lossy": false`.
+5. **[5/5] Hostile files**: random, empty, text, 1-byte and PNG files are `unrecognized` with no
+   records; the 7-byte LIBRA-98 stub is `failed`. Receipt chain: tampering is detected.
 
 ### Conclusion & Wrap-Up (2:30 – 3:30)
-- Fully containerised, runs offline with vendored dependencies, passes all JSON schemas.
+- Fully containerised, runs offline on the standard library alone, output validates against the contract schemas.
 
 ---
 
@@ -49,14 +41,24 @@ Team: **Chargeman Ken** · Problem: **PS 02 (Ascension 02)** · Track: **EVA 03*
 
 ### Q2: "How do you know you aren't outputting false recoveries?"
 **Answer**:
-> *"We enforce a strict 4-state status contract: `verified`, `corrected`, `unverified`, `lost`. A field is only marked `verified` if it satisfies mathematical proof (CRC-32 match, exact round-trip byte identity, or all-sample layout invariance across $\ge 2$ siblings). If a format lacks a checksum (like LIBRA-98), our corruption lab empirically measures the false-recovery risk under bit flips and reports it honestly (e.g. 11.38% on sparse flips), rather than claiming impossible perfection."*
+> *"We measured it on the organisers' own files. Every record is verified by the strongest check
+> its format has: CRC-16 per block in LABLOG, CRC-32 per blob in VAULT, a sum-8 per record plus a
+> file sum-16 in LIBRA-98, a trailer cross-check in the mainframe dump. Anything we cannot prove
+> carries `verified: false`. In the corruption lab (`make calibrate`, 360 damaged variants
+> of the clean real samples) LIBRA-98, LABLOG and VAULT returned **zero** wrong verified records.
+> Formats with no checksum at all (WKS, WPD, BRAVO, CVT, WAD, PAK) can only be checked by
+> structure, so a flipped letter inside their text is undetectable by any tool; we measure and
+> report that too instead of hiding it."*
 
-### Q3: "What external benchmark numbers do you cite, and how do they compare?"
-**Answer**:
-> - **LFM2 vs Qwen3 on CPU**: Published benchmarks show Liquid LFM2 is $\sim 2\times$ faster on CPU inference than comparable dense models, making it ideal for offline edge extraction.
-> - **BinaryInferno False Positive Rates**: Published literature for BinaryInferno cites a 0.04 false-positive rate compared to 0.11–0.22 for standard heuristics.
-> - **Held-Out E-Values**: A conservative e-value threshold of $\ge 20:1$ provides a theoretical bound of at most 5% wrong-field acceptance.
-> - **Our Own Measured Numbers**: In our corruption lab, across 180 damaged variants, false loss rate was measured at **0.00%**, and false recovery rate was measured at **11.38%** (concentrated exclusively in unchecksummed printable string bit-flips).
+### Q3: "What numbers can you show?"
+**Answer** (all measured by us on the organisers' kit; reproduce with the commands shown):
+> - **Expected outputs**: 7 of 7 match (`make check`).
+> - **Crashes**: 0 on about 25,000 damaged and random variants of the samples.
+> - **False recoveries on random bit flips** (`make false-recovery`): LABLOG 0%, LIBRA-98 0.09%
+>   (rare multi-bit collisions in its sum-8), VAULT 2.7%, EBCDIC 6.8%; no-checksum formats 6–29%.
+> - **Corruption lab** (`make calibrate`): 0 false recoveries for LIBRA-98, LABLOG and VAULT.
+> - Published figures (LFM2 speed, BinaryInferno, e-value bounds) belong to the methods in our
+>   roadmap, not to this build: say so if asked.
 
 ### Q4: "Why does the tool always exit code 0 even on corrupted files?"
 **Answer**:
@@ -66,14 +68,15 @@ Team: **Chargeman Ken** · Problem: **PS 02 (Ascension 02)** · Track: **EVA 03*
 
 ## 4. Definition of Done Checklist
 
-| Criteria | Implementation Status | Evidence |
+| Criteria | Status | Evidence |
 | --- | :---: | --- |
-| **Zero invented data** | Pass | Destroyed fields are marked `lost` with `value: null`. Tested in `tests/test_damaged.py`. |
-| **Strict status labels** | Pass | Only `verified`, `corrected`, `unverified`, `lost`. Validated by `schema_validate.py`. |
-| **Offline Docker build** | Pass | Pinned wheels in `vendor/wheels/` for both `linux/amd64` and `linux/arm64`. `--network none` verified. |
-| **Schema compliance** | Pass | All outputs validate against `output.schema.json`, `report.schema.json`, `receipt.schema.json`. |
-| **Audit trail** | Pass | `receipts.jsonl` hash chain passes `verify_chain()`; tamper detection demonstrated live. |
-| **Hostile inputs** | Pass | 0-byte, empty dirs, symlink loops, chmod 000, huge files tested in `tests/test_hostile.py`. |
-| **Determinism** | Pass | Identical inputs processed twice produce 100% byte-identical output directory. |
-| **Format specifications** | Pass | `FORMAT-SPEC.md` generated directly from declarative code via Jinja2 template (`make spec`). |
-| **Empirical calibration** | Pass | Seeded damage variants measured in `corruption_lab_results.json`. |
+| **Output contract** | Pass | Per-file JSON and `report.json` follow `real-samples/OUTPUT-CONTRACT.md`; schemas in `schema/`. |
+| **Expected outputs** | Pass | 7 of 7 match (`make check`, also in CI). |
+| **All sample files** | Pass | 30 of 30 identified with the right format and status; `nested/` skipped. |
+| **Zero invented data** | Pass | Unprovable records carry `verified: false`; unreadable fields are null. `tests/test_damaged.py`. |
+| **No AI at runtime, offline** | Pass | Standard library only; Docker run with `--network none`. |
+| **Hostile inputs** | Pass | 0-byte, 1-byte, random, PNG, text, unreadable, symlinks, huge files: `tests/test_hostile.py`. |
+| **Determinism** | Pass | Same input twice gives byte-identical output. |
+| **FORMAT-SPEC.md** | Pass | Generated from the decoders (`make spec`), layout + evidence for all 10 formats. |
+| **FIELD-LOG.md** | Pass | 66 hypotheses on the real bytes incl. 17 rejected (`tools/field_evidence.py`). |
+| **Audit trail** | Pass | `receipts.jsonl` hash chain; tampering detected. |

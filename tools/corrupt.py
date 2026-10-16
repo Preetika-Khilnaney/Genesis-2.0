@@ -4,7 +4,7 @@
 Makes damaged copies of clean sample files so we can test recovery and measure
 how often the tool is wrong:
 
-    python3 tools/corrupt.py samples/libra98/a.bin --out tests/fixtures/damaged --seed 1
+    python3 tools/corrupt.py real-samples/samples/s01.dat --out tests/fixtures/damaged --seed 1
 
 Damage types (one file each, the name says what was done and where):
     truncN            file cut to N% of its length

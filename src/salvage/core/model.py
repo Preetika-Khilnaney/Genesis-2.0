@@ -19,14 +19,26 @@ class FieldStatus(str, Enum):
 
 
 class DamageCause(str, Enum):
+    # The organisers' damage vocabulary (OUTPUT-CONTRACT.md). New code uses only these.
     TRUNCATED = "truncated"
-    CRC_FAIL = "crc_fail"
-    BAD_OFFSET = "bad_offset"
+    CRC_MISMATCH = "crc_mismatch"
+    CHECKSUM_MISMATCH = "checksum_mismatch"
     BAD_LENGTH = "bad_length"
-    BAD_KEY = "bad_key"
-    INDEX_OVERLAP = "index_overlap"
-    BAD_MAGIC = "bad_magic"
-    UNKNOWN = "unknown"
+    UNPARSED_BYTES = "unparsed_bytes"
+    COUNT_MISMATCH = "count_mismatch"
+    INVALID_VALUE = "invalid_value"
+    OOB_POINTER = "oob_pointer"
+    INDEX_MISSING = "index_missing"
+    HEADER_CHECKSUM = "header_checksum"
+    ENCRYPTED = "encrypted"
+    UNKNOWN_RECORD = "unknown_record"
+    # Older internal names, still produced by the generic helpers; output/contract.py maps them.
+    CRC_FAIL = "crc_fail"              # -> crc_mismatch
+    BAD_OFFSET = "bad_offset"          # -> oob_pointer
+    BAD_KEY = "bad_key"                # -> encrypted
+    INDEX_OVERLAP = "index_overlap"    # -> oob_pointer
+    BAD_MAGIC = "bad_magic"            # -> invalid_value
+    UNKNOWN = "unknown"                # -> unparsed_bytes
 
 
 @dataclass
@@ -53,6 +65,13 @@ class Record:
     index: int
     offset: int | None = None
     fields: dict[str, Field] = field(default_factory=dict)
+    # Contract output. `values` is the record exactly as OUTPUT-CONTRACT.md wants it; if None,
+    # it is built from `fields`. `verified` False adds "verified": false; `issues` lists damage
+    # kinds that touched this record. `corrected` notes a provable repair (e.g. single-bit fix).
+    values: dict[str, Any] | None = None
+    verified: bool = True
+    issues: list[str] = field(default_factory=list)
+    corrected: str | None = None
 
     def add(self, f: Field) -> None:
         self.fields[f.name] = f
@@ -72,6 +91,7 @@ class DamageEntry:
     cause: DamageCause
     detail: str = ""
     affected: list[str] = field(default_factory=list)  # record indexes / field names lost
+    lossy: bool = True         # False when the damage was found but nothing was lost (e.g. repaired)
 
     def to_dict(self) -> dict:
         return {
@@ -95,6 +115,8 @@ class FileResult:
     error: str | None = None         # set when decoding crashed; the run still exits 0
     input_sha256: str | None = None  # SHA-256 of input file bytes
     extra: dict[str, Any] = field(default_factory=dict)  # format-specific (e.g. unknown-file entropy map)
+    metadata: dict[str, Any] = field(default_factory=dict)  # contract "metadata" (header values)
+    status: str | None = None        # contract status override: ok|partial|unsupported|unrecognized|failed
 
     def status_counts(self) -> dict[str, int]:
         counts = {s.value: 0 for s in FieldStatus}

@@ -1,62 +1,102 @@
 {
   "formats": {
-    "libra98": {
-      "decoder_ready": true,
+    "BRAVO": {
       "variants_tested": 36,
-      "total_fields": 1032,
-      "verified_fields": 290,
-      "false_recoveries": 33,
-      "false_losses": 0,
-      "false_recovery_rate": 0.1138,
-      "false_loss_rate": 0.0
+      "total_records": 180,
+      "verified_records": 133,
+      "false_recoveries": 40,
+      "false_losses": 39,
+      "false_recovery_rate": 0.3008,
+      "false_loss_rate": 0.2167
     },
-    "lablog": {
-      "decoder_ready": false,
+    "CVT": {
       "variants_tested": 36,
-      "total_fields": 0,
-      "verified_fields": 0,
-      "false_recoveries": 0,
-      "false_losses": 0,
-      "false_recovery_rate": 0.0,
-      "false_loss_rate": 0.0
+      "total_records": 60,
+      "verified_records": 37,
+      "false_recoveries": 15,
+      "false_losses": 8,
+      "false_recovery_rate": 0.4054,
+      "false_loss_rate": 0.1333
     },
-    "vault": {
-      "decoder_ready": false,
+    "EBCDIC-DUMP": {
       "variants_tested": 36,
-      "total_fields": 0,
-      "verified_fields": 0,
-      "false_recoveries": 0,
-      "false_losses": 0,
-      "false_recovery_rate": 0.0,
-      "false_loss_rate": 0.0
+      "total_records": 180,
+      "verified_records": 65,
+      "false_recoveries": 5,
+      "false_losses": 96,
+      "false_recovery_rate": 0.0769,
+      "false_loss_rate": 0.5333
     },
-    "wks": {
-      "decoder_ready": false,
+    "LABLOG": {
       "variants_tested": 36,
-      "total_fields": 0,
-      "verified_fields": 0,
+      "total_records": 828,
+      "verified_records": 271,
       "false_recoveries": 0,
-      "false_losses": 0,
+      "false_losses": 293,
       "false_recovery_rate": 0.0,
-      "false_loss_rate": 0.0
+      "false_loss_rate": 0.3539
     },
-    "pak": {
-      "decoder_ready": false,
+    "LIBRA-98": {
       "variants_tested": 36,
-      "total_fields": 0,
-      "verified_fields": 0,
+      "total_records": 204,
+      "verified_records": 91,
       "false_recoveries": 0,
-      "false_losses": 0,
+      "false_losses": 69,
       "false_recovery_rate": 0.0,
-      "false_loss_rate": 0.0
+      "false_loss_rate": 0.3382
+    },
+    "PAK": {
+      "variants_tested": 36,
+      "total_records": 144,
+      "verified_records": 56,
+      "false_recoveries": 13,
+      "false_losses": 93,
+      "false_recovery_rate": 0.2321,
+      "false_loss_rate": 0.6458
+    },
+    "VAULT": {
+      "variants_tested": 36,
+      "total_records": 108,
+      "verified_records": 15,
+      "false_recoveries": 0,
+      "false_losses": 75,
+      "false_recovery_rate": 0.0,
+      "false_loss_rate": 0.6944
+    },
+    "WAD": {
+      "variants_tested": 36,
+      "total_records": 252,
+      "verified_records": 119,
+      "false_recoveries": 32,
+      "false_losses": 127,
+      "false_recovery_rate": 0.2689,
+      "false_loss_rate": 0.504
+    },
+    "WKS": {
+      "variants_tested": 36,
+      "total_records": 720,
+      "verified_records": 300,
+      "false_recoveries": 10,
+      "false_losses": 420,
+      "false_recovery_rate": 0.0333,
+      "false_loss_rate": 0.5833
+    },
+    "WPD": {
+      "variants_tested": 36,
+      "total_records": 180,
+      "verified_records": 109,
+      "false_recoveries": 30,
+      "false_losses": 65,
+      "false_recovery_rate": 0.2752,
+      "false_loss_rate": 0.3611
     }
   },
   "totals": {
-    "tested_files": 180,
-    "total_fields": 1032,
-    "verified_fields": 290,
-    "false_recoveries": 33,
-    "false_recovery_rate": 0.1138,
-    "false_loss_rate": 0.0
+    "tested_files": 360,
+    "total_records": 2856,
+    "verified_records": 1196,
+    "false_recoveries": 145,
+    "false_recovery_rate": 0.1212,
+    "false_loss_rate": 0.4499
   }
 }
