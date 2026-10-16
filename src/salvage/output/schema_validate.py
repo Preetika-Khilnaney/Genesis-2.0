@@ -1,10 +1,9 @@
 """Schema validation for all salvage output. OWNER: Manas (delivery).
 
 Validates per-file JSONs, report.json and receipts.jsonl against the JSON
-schemas in schema/. Fails loudly on unknown field statuses.
-
-Only four status labels are legal:
-    verified | corrected | unverified | lost
+schemas in schema/ (which follow the organisers' OUTPUT-CONTRACT.md). Fails loudly
+on any file status outside the contract's five:
+    ok | partial | unsupported | unrecognized | failed
 
 Import and call validate_output_dir(path) to check everything in one go.
 Used by the test harness and by tools/gate_check.sh via:
@@ -24,7 +23,8 @@ except ImportError:  # pragma: no cover
 
 _SCHEMA_DIR = Path(__file__).resolve().parents[3] / "schema"
 
-VALID_STATUSES = frozenset({"verified", "corrected", "unverified", "lost"})
+VALID_STATUSES = frozenset({"ok", "partial", "unsupported", "unrecognized", "failed"})  # file status
+FIELD_STATUSES = frozenset({"verified", "corrected", "unverified", "lost"})              # internal only
 
 
 def _load_schema(name: str) -> dict:
@@ -46,15 +46,13 @@ def _validate(instance: dict, schema: dict, label: str) -> list[str]:
 
 
 def _collect_field_statuses(obj, found: set[str]) -> None:
-    """Recursively collect every value of a key named 'status'."""
+    """Collect the file-level 'status' of a per-file JSON, or of every entry in report.json."""
     if isinstance(obj, dict):
         if "status" in obj:
             found.add(str(obj["status"]))
-        for v in obj.values():
-            _collect_field_statuses(v, found)
-    elif isinstance(obj, list):
-        for item in obj:
-            _collect_field_statuses(item, found)
+        for f in obj.get("files", []) if isinstance(obj.get("files"), list) else []:
+            if isinstance(f, dict) and "status" in f:
+                found.add(str(f["status"]))
 
 
 def validate_output_dir(output_dir: Path) -> list[str]:

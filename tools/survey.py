@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Survey a set of samples of ONE format and propose a layout. OWNER: Preetika.
 
-    python3 tools/survey.py samples/libra98/
-    python3 tools/survey.py samples/libra98/ --log --by Preetika    # also writes FIELD-LOG rows
+    python3 tools/survey.py <folder of one format's files>
+    python3 tools/survey.py <folder> --log --by Preetika    # also writes FIELD-LOG rows
 
 It only reports facts that hold on EVERY sample (the same all-samples rule as
 evidence/checker.py), so anything it prints is a hypothesis worth checking, not a

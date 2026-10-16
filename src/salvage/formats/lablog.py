@@ -1,192 +1,225 @@
-"""LABLOG. OWNER: Khushi (recovery).
+"""LABLOG: benchtop analytical-instrument data logger (early 1990s). OWNER: Khushi (recovery).
 
-Checksummed blocks: every block's payload is VERIFIED by its CRC-32, a provable single-bit
-error is CORRECTED, and every other bad block is LOST with an exact byte range and cause.
-The block walk (CRC gate, single-bit fix, resync, truncation) is core.blocks.read_blocks;
-this module only describes the layout and turns blocks into records.
+Layout, worked out from real-samples s05-s07 and expected_outputs/s05 (evidence in FIELD-LOG.md):
 
-STAND-IN LAYOUT: worked out from samples/lablog/ (our demo data, invented layout) with
-tools/lablog_probe.py. Redo it from real-samples/lablog/ when the real samples arrive
-(`python3 tools/lablog_probe.py real-samples/lablog/ --by Khushi --log`); the record
-building, the seq/length evidence rules and the tests carry over. Every fact below is a
-FIELD-LOG row (format "lablog"):
+  Header (32 bytes, little-endian)
+    0  4  magic "LLOG"            4  1  version            5  1  channel count
+    6  2  sample interval in 10 ms units (50 -> 500 ms)
+    8  16 instrument name, NUL padded
+    24 4  start time, seconds since 1990-01-01 UTC
+    28 2  declared block count    30 2  CRC-16/CCITT-FALSE of bytes 0..29
+  Blocks (from offset 32)
+    0xB1, u8 type, u16 length, payload, u16 CRC-16/CCITT-FALSE over (type, length, payload)
+    type 3  channels: per channel  unit[4] (NUL padded), f32 scale, f32 offset
+    type 1  data:  u16 first sample, u8 n, then n x channels i16 raw; value = raw*scale + offset;
+            raw 0x8000 = dropout -> null
+    type 2  event: u16 sample, u8 severity, u8 length + message
 
-    0   4C 42 4C 47     magic "LBLG"
-    4   u16             meaning unknown (one value per file): always UNVERIFIED
-    6   blocks until EOF:
-        A5 5A | u16 seq | u16 length N | N payload bytes | u32 crc32(payload)
-
-The CRC covers the payload only, so seq and length need their own evidence:
-  - length is VERIFIED when the CRC passed over exactly that many bytes;
-  - seq is VERIFIED when it continues the count (0, 1, 2 ...) from an adjacent good block,
-    or is 0 on the block right after the header. Otherwise UNVERIFIED: a flipped bit there
-    would go unnoticed by the CRC.
+A block whose CRC fails is repaired only when exactly one flipped bit explains it (provable for
+CRC-16 on blocks this size); otherwise its samples are output as verified=false. Truncated and
+unknown blocks are reported; the parser resyncs on the next 0xB1 whose CRC checks out.
 """
 from __future__ import annotations
 
-from ..core.blocks import Block, BlockLayout, block_structure_score, read_blocks
-from ..core.model import DamageCause, DamageEntry, Field, FieldStatus, FileResult, Record
-from ..core.reader import ByteReader, OutOfBounds
+import datetime as dt
+import struct
+
+from ..core.model import FileResult
 from ..core.registry import DecodeContext, Decoder, register
-from ..core.spec import FieldSpec, FormatSpec, decode_fields
+from ..core.spec import FieldSpec, FormatSpec
+from ..recovery.crc import crc16_ccitt
+from ._common import D, damage, record
 
-MAGIC = b"LBLG"
-HEADER_SIZE = 6
-KEYS = ("t", "temp", "ph")       # payload keys, in order (FIELD-LOG: same keys in every block)
-
-LAYOUT = BlockLayout(
-    marker=b"\xa5\x5a",
-    extra=[FieldSpec("seq", "u16")],
-    length_type="u16",
-    length_counts="payload",
-    checksum_algo="crc32",
-    checksum_type="u32",
-    checksum_covers="payload",
-    endian="little",
-)
+MAGIC = b"LLOG"
+MARKER = 0xB1
+EPOCH = dt.datetime(1990, 1, 1, tzinfo=dt.timezone.utc)
+DROPOUT = -32768
+T_DATA, T_EVENT, T_CHANNELS = 1, 2, 3
 
 LABLOG_SPEC = FormatSpec(
-    name="lablog",
+    name="LABLOG",
     magic=MAGIC,
-    endian="little",
-    description=("A 6-byte header, then checksummed blocks back to back until the end of the file. "
-                 "Each block is a 2-byte marker A5 5A, a sequence number, a payload length, the payload "
-                 "(text like t=89;temp=24.9;ph=6.81) and a CRC-32 of the payload. "
-                 "STAND-IN layout from our own samples; redo from the real samples."),
-    checksum="CRC-32 (zlib.crc32) of the payload only, stored as u32 little-endian after the payload",
+    description=("Instrument log: 32-byte header with its own CRC-16, then CRC-16-protected blocks "
+                 "(channels, data, events)."),
+    checksum="CRC-16/CCITT-FALSE (poly 0x1021, init 0xFFFF), little-endian, over type+length+payload; "
+             "header CRC over bytes 0..29",
     header=[
-        FieldSpec("magic", "bytes", 4, desc="file signature 'LBLG'",
-                  evidence="FIELD-LOG: same in all 6 samples"),
-        FieldSpec("unknown_4", "u16", desc="meaning unknown; one value per file (40-45 seen)",
-                  evidence="FIELD-LOG: not the block count, the file size or a constant (open)"),
+        FieldSpec("magic", "bytes", 4, "'LLOG'", "all samples"),
+        FieldSpec("version", "u8", desc="format version", evidence="1 in all samples"),
+        FieldSpec("channels", "u8", desc="channel count", evidence="matches channel block size"),
+        FieldSpec("interval", "u16", desc="sample interval / 10 ms", evidence="50 -> 500 ms (expected s05)"),
+        FieldSpec("instrument", "str", 16, "instrument name", "expected s05"),
+        FieldSpec("start", "u32", desc="seconds since 1990-01-01 UTC", evidence="-> 1992-10-11T05:07:43Z (expected s05)"),
+        FieldSpec("declared_block_count", "u16", desc="blocks that follow", evidence="7 / 8 / 8, matches s05-s07"),
+        FieldSpec("header_crc", "u16", desc="CRC-16/CCITT-FALSE of bytes 0..29", evidence="holds on s05-s07"),
     ],
     record=[
-        FieldSpec("seq", "u16", desc="block sequence number, 0, 1, 2 ... (after marker A5 5A)",
-                  evidence="FIELD-LOG: counts up by 1 from 0 in every sample"),
-        FieldSpec("length", "u16", desc="payload length in bytes; block = length + 10",
-                  evidence="FIELD-LOG: walks all 37 blocks to EOF; the CRC rejects 2 rival readings"),
-        FieldSpec("payload", "bytes", desc="printable ASCII text, ';'-separated key=value pairs",
-                  evidence="FIELD-LOG: printable in every block; crc32 matches all 37 blocks"),
-        FieldSpec("t", "str", desc="payload key t (number)", evidence="FIELD-LOG: key order t, temp, ph"),
-        FieldSpec("temp", "str", desc="payload key temp (number)", evidence="FIELD-LOG: key order t, temp, ph"),
-        FieldSpec("ph", "str", desc="payload key ph (number)", evidence="FIELD-LOG: key order t, temp, ph"),
+        FieldSpec("marker", "u8", desc="0xB1", evidence="every block"),
+        FieldSpec("type", "u8", desc="1 data, 2 event, 3 channels", evidence="payload shapes"),
+        FieldSpec("length", "u16", desc="payload length", evidence="tiles blocks exactly"),
+        FieldSpec("crc", "u16", desc="CRC-16/CCITT-FALSE of type+length+payload", evidence="holds on 22 of 23 blocks"),
     ],
-    notes=["Blocks: A5 5A | u16 seq | u16 length N | N payload bytes | u32 crc32(payload).",
-           "The CRC does not cover seq or length; see the module docstring for how they are verified.",
-           "unknown_4 stays unverified until its meaning is proven."],
+    notes=["Data payload: u16 first_sample, u8 n, n x channels i16; 0x8000 = dropout (null).",
+           "Channels payload: per channel unit[4], f32 scale, f32 offset; value = raw*scale + offset."],
 )
 
-GOOD = (FieldStatus.VERIFIED, FieldStatus.CORRECTED)
+
+def _block_ok(b: bytes, p: int) -> bool:
+    if p + 6 > len(b) or b[p] != MARKER:
+        return False
+    L = struct.unpack_from("<H", b, p + 2)[0]
+    return p + 6 + L <= len(b) and crc16_ccitt(b[p + 1:p + 4 + L]) == struct.unpack_from("<H", b, p + 4 + L)[0]
 
 
-def _number(text: str):
-    """int or float when it prints back to exactly the same text, else the text itself."""
-    for conv in (int, float):
-        try:
-            v = conv(text)
-        except ValueError:
-            continue
-        if str(v) == text:
-            return v
-    return text
-
-
-def _parse_payload(payload: bytes) -> dict[str, tuple[str, int]] | None:
-    """key -> (value text, offset inside the payload), or None if not key=value text."""
-    if not payload or not all(32 <= c < 127 for c in payload):
-        return None
-    out, pos = {}, 0
-    for part in payload.decode("ascii").split(";"):
-        key, sep, val = part.partition("=")
-        if not sep or not key or key in out:
-            return None
-        out[key] = (val, pos + len(key) + 1)
-        pos += len(part) + 1
-    return out
-
-
-def _seq_ok(blocks: list[Block], i: int) -> bool:
-    """Does block i's seq continue the count from an adjacent good block (no gap between)?"""
-    b = blocks[i]
-    seq = b.header["seq"].value
-    if b.offset == HEADER_SIZE and seq == 0:
-        return True
-    prev = blocks[i - 1] if i > 0 else None
-    nxt = blocks[i + 1] if i + 1 < len(blocks) else None
-    if prev and prev.status in GOOD and prev.end == b.offset and seq == prev.header["seq"].value + 1:
-        return True
-    if nxt and nxt.status in GOOD and b.end == nxt.offset and nxt.header["seq"].value == seq + 1:
-        return True
-    return False
-
-
-def _record(index: int, blocks: list[Block], i: int) -> Record:
-    b = blocks[i]
-    rec = Record(index=index, offset=b.offset)
-    seq_off, len_off = b.offset + 2, b.offset + 4
-    if b.status == FieldStatus.LOST:
-        # nothing in a failed block can be trusted, not even its seq or length: no values
-        for s in LABLOG_SPEC.record:
-            rec.add(Field(s.name, None, FieldStatus.LOST, note=b.note))
-        return rec
-
-    good = b.status in GOOD
-    seq = b.header["seq"]
-    if good and _seq_ok(blocks, i):
-        seq_status, seq_note = FieldStatus.VERIFIED, "continues the 0, 1, 2 ... count from an adjacent good block"
-    else:
-        seq_status, seq_note = FieldStatus.UNVERIFIED, "not covered by the CRC and not confirmed by a neighbour"
-    rec.add(Field("seq", seq.value, seq_status, seq_off, 2, seq_note))
-
-    length = b.header["length"]
-    if good:
-        rec.add(Field("length", length.value, FieldStatus.VERIFIED, len_off, 2,
-                      "the CRC passed over exactly this many bytes"))
-    else:
-        rec.add(Field("length", length.value, FieldStatus.UNVERIFIED, len_off, 2, b.note))
-
-    pairs = _parse_payload(b.payload)
-    text = b.payload.decode("ascii") if pairs is not None else b.payload.hex()
-    note = b.note if pairs is not None else f"{b.note}; not key=value text, shown as hex"
-    rec.add(Field("payload", text, b.status, b.payload_offset, len(b.payload), note))
-    for key in KEYS:
-        if pairs is None or key not in pairs:
-            rec.add(Field(key, None, FieldStatus.LOST, note="key not present in the payload"))
-            continue
-        val, at = pairs[key]
-        rec.add(Field(key, _number(val), b.status, b.payload_offset + at, len(val), b.note))
-    return rec
+def _single_bit_fix(covered: bytes, stored: int) -> tuple[bytes, int] | None:
+    hits = []
+    for bit in range(len(covered) * 8):
+        c = bytearray(covered)
+        c[bit // 8] ^= 1 << (bit % 8)
+        if crc16_ccitt(bytes(c)) == stored:
+            hits.append((bytes(c), bit))
+            if len(hits) > 1:
+                return None
+    return hits[0] if hits else None
 
 
 @register
 class LablogDecoder(Decoder):
-    name = "lablog"
+    name = "LABLOG"
     spec = LABLOG_SPEC
     ready = True
 
     def structure_score(self, data: bytes) -> float:
-        # header damaged: still LABLOG if CRC-checked blocks explain every byte after it
-        return block_structure_score(data, LAYOUT, HEADER_SIZE)
+        return 1.0 if _block_ok(data, 32) and len(data) >= 38 else 0.0
 
     def decode(self, path: str, data: bytes, ctx: DecodeContext | None = None) -> FileResult:
         res = FileResult(source_file=path, format=self.name)
-        try:
-            res.header = decode_fields(ByteReader(data, "little"), LABLOG_SPEC.header)
-        except OutOfBounds:
-            res.damage.append(DamageEntry(0, len(data), DamageCause.TRUNCATED,
-                                          "file ends inside the 6-byte header", ["header"]))
+        b = data
+        if len(b) < 32:
+            res.status = "failed"
+            damage(res, D.TRUNCATED, 0, len(b), f"file is {len(b)} bytes; the LABLOG header needs 32")
             return res
-        magic = res.header["magic"]
-        if data[:len(MAGIC)] == MAGIC:
-            magic.status, magic.note = FieldStatus.VERIFIED, "matches 'LBLG' (same in every sample)"
-        else:
-            magic.note = "does not match 'LBLG'"
-        res.header["unknown_4"].note = "meaning unknown (FIELD-LOG: open)"
+        ver, nch, iv = b[4], b[5], struct.unpack_from("<H", b, 6)[0]
+        inst = b[8:24].split(b"\0")[0].decode("latin-1")
+        start, nblocks, hcrc = struct.unpack_from("<IHH", b, 24)
+        interval = iv * 10
+        meta = {"version": ver, "instrument": inst, "sample_interval_ms": interval, "channels": [],
+                "start_time_utc": (EPOCH + dt.timedelta(seconds=start)).strftime("%Y-%m-%dT%H:%M:%SZ"),
+                "declared_block_count": nblocks, "events": []}
+        res.metadata = meta
+        header_ok = crc16_ccitt(b[:30]) == hcrc
+        if not header_ok:
+            damage(res, D.HEADER_CHECKSUM, 0, 32, "header CRC does not match; header values (interval, "
+                   "channel count, start time) and everything computed from them are unverified")
+        channels_ok = False
 
-        scan = read_blocks(data, LAYOUT, start=HEADER_SIZE)
-        res.damage += scan.damage
-        res.warnings += scan.warnings
-        res.records = [_record(i, scan.blocks, i) for i in range(len(scan.blocks))]
-        res.extra["blocks"] = {s.value: sum(b.status == s for b in scan.blocks) for s in FieldStatus}
-        res.extra["block_coverage"] = round(scan.coverage(max(len(data) - HEADER_SIZE, 0)), 4)
+        scales: list[tuple[float, float]] = []
+        p, nblk, seen, truncated = 32, 0, set(), False
+        pending_data: list[tuple[int, bytes, bool, list[str]]] = []
+        while p < len(b):
+            if b[p] != MARKER:
+                nxt = next((q for q in range(p + 1, len(b)) if _block_ok(b, q)), None)
+                stop = nxt if nxt is not None else len(b)
+                damage(res, D.UNPARSED_BYTES, p, stop, f"{stop - p} bytes at offset {p} are not a valid block")
+                if nxt is None:
+                    break
+                p = nxt
+                continue
+            if p + 4 > len(b):
+                damage(res, D.TRUNCATED, p, len(b), f"file ends inside block {nblk} header")
+                truncated = True
+                break
+            t, L = b[p + 1], struct.unpack_from("<H", b, p + 2)[0]
+            end = p + 6 + L
+            if end > len(b):
+                nxt = next((q for q in range(p + 1, len(b)) if _block_ok(b, q)), None)
+                if nxt is not None:      # length is corrupt, not the file: skip to the next good block
+                    damage(res, D.BAD_LENGTH, p, nxt, f"block {nblk}: length {L} runs past the end; resynced")
+                    p, nblk = nxt, nblk + 1
+                    continue
+                damage(res, D.TRUNCATED, p, len(b), f"file ends inside block {nblk} (type {t}): "
+                       f"{len(b) - p} of {L + 6} bytes present", affected=[f"block {nblk}"])
+                if t == T_DATA:
+                    pending_data.append((p, b[p + 4:], False, ["truncated"]))
+                truncated = True
+                break
+            covered, stored = b[p + 1:p + 4 + L], struct.unpack_from("<H", b, p + 4 + L)[0]
+            ok, issues = crc16_ccitt(covered) == stored, []
+            payload = b[p + 4:p + 4 + L]
+            if not ok:
+                fix = _single_bit_fix(covered, stored)
+                if fix is not None:
+                    fixed, bit = fix
+                    t = fixed[0]                     # the repaired type byte, not the damaged one
+                    payload = fixed[3:]
+                    issues = ["crc_mismatch"]
+                    damage(res, D.CRC_MISMATCH, p, end, f"block {nblk}: CRC mismatch repaired: exactly one "
+                           f"flipped bit (block byte {bit // 8 + 1}, bit {bit % 8}) explains it", lossy=False)
+                    ok = True
+                else:
+                    issues = ["crc_mismatch"]
+                    damage(res, D.CRC_MISMATCH, p, end, f"block {nblk} (type {t}): CRC mismatch; "
+                           "its values are output unverified", affected=[f"block {nblk}"])
+            if t == T_CHANNELS:
+                channels_ok = ok
+                scales = []
+                meta["channels"] = []
+                for i in range(L // 12):
+                    unit = payload[12 * i:12 * i + 4].split(b"\0")[0].decode("latin-1")
+                    sc, of = struct.unpack_from("<ff", payload, 12 * i + 4)
+                    scales.append((sc, of))
+                    meta["channels"].append({"index": i, "unit": unit})
+                if len(scales) != nch:
+                    damage(res, D.COUNT_MISMATCH, p, end, f"header says {nch} channels, channel block has "
+                           f"{len(scales)}", lossy=False)
+            elif t == T_DATA:
+                pending_data.append((p, payload, ok, issues))
+            elif t == T_EVENT and len(payload) >= 4:
+                ml = payload[3]
+                meta["events"].append({"sample": struct.unpack_from("<H", payload, 0)[0],
+                                       "severity": payload[2],
+                                       "message": payload[4:4 + ml].decode("latin-1")})
+            else:
+                damage(res, D.UNKNOWN_RECORD, p, end, f"block {nblk}: unknown block type {t} ({L} bytes) skipped",
+                       lossy=not ok)
+            p, nblk = end, nblk + 1
+
+        nchan = len(scales) or nch
+        if nchan == 0:
+            if pending_data:
+                damage(res, D.INVALID_VALUE, 5, 6, "channel count is 0: data blocks cannot be split into values")
+            return res
+        if not scales:
+            scales = [(1.0, 0.0)] * nch
+            damage(res, D.INDEX_MISSING, 32, 32, "no channel block: values are raw, uncalibrated")
+        for p0, payload, verified, issues in pending_data:
+            if len(payload) < 3:
+                continue
+            first, n = struct.unpack_from("<H", payload, 0)[0], payload[2]
+            have = (len(payload) - 3) // (2 * nchan)
+            if have < n and "truncated" not in issues:
+                issues = issues + ["bad_length"]
+                verified = False
+            if not header_ok and "header_checksum" not in issues:
+                issues = issues + ["header_checksum"]
+                verified = False
+            if not channels_ok and "index_missing" not in issues:
+                issues = issues + ["index_missing"]      # calibration (channel block) missing or unverified
+                verified = False
+            for i in range(min(n, have)):
+                s = first + i
+                vals = []
+                for c in range(nchan):
+                    raw = struct.unpack_from("<h", payload, 3 + 2 * (i * nchan + c))[0]
+                    sc, of = scales[c] if c < len(scales) else (1.0, 0.0)
+                    vals.append(None if raw == DROPOUT else round(raw * sc + of, 6))
+                dup = s in seen
+                seen.add(s)
+                rec_issues = list(issues) + (["invalid_value"] if dup else [])
+                res.records.append(record(s, p0, {"sample": s, "time_ms": s * interval, "values": vals},
+                                          verified=verified and not dup and "truncated" not in issues,
+                                          issues=rec_issues))
+        if nblk != nblocks and not truncated:
+            damage(res, D.COUNT_MISMATCH, 28, 30, f"header declares {nblocks} blocks, file holds {nblk}",
+                   lossy=nblk < nblocks)
         return res

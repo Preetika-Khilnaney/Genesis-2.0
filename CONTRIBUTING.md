@@ -4,10 +4,10 @@
 
 | Person | Owns | Files |
 | --- | --- | --- |
-| Preetika | Core engine, CLI, shared interfaces, LIBRA-98, integration | `cli.py`, `core/`, `formats/libra98.py` |
-| Khushi | Recovery: CRC gate, **single-bit correction**, resync, LABLOG, VAULT, game archive (Quake PAK) | `recovery/`, `core/blocks.py` (with Preetika), `formats/lablog.py`, `formats/vault.py`, `formats/pak.py` |
-| Bhupesh | Evidence: field meanings, checker, FIELD-LOG, **real-world format** | `evidence/`, `formats/realworld.py`, LIBRA-98 field evidence |
-| Manas | Delivery: outputs, report.json, receipts, FORMAT-SPEC, tests, corruption tool (truncate, bit flip, zero, insert, delete), Docker, README | `output/`, `tests/`, `tools/corrupt.py`, `Dockerfile` |
+| Preetika | Core engine, CLI, shared interfaces, LIBRA-98, integration | `cli.py`, `core/`, `formats/libra98.py`, `formats/_common.py` |
+| Khushi | Recovery: CRC gate, **single-bit correction**, resync, LABLOG, VAULT, game archives (WAD, PAK) | `recovery/`, `core/blocks.py` (with Preetika), `formats/lablog.py`, `formats/vault.py`, `formats/archives.py` |
+| Bhupesh | Evidence: field meanings, checker, FIELD-LOG, **real-world formats** (WKS, WPD, BRAVO, CVT, EBCDIC-DUMP) | `evidence/`, `formats/wks.py`, `formats/documents.py`, `formats/cvt.py`, `formats/ebcdic.py`, `tools/field_evidence.py` |
+| Manas | Delivery: OUTPUT-CONTRACT mapping, report.json, receipts, FORMAT-SPEC, tests, corruption tool, Docker, README | `output/` (incl. `contract.py`), `tests/`, `tools/check_expected.py`, `tools/false_recovery.py`, `tools/corrupt.py`, `Dockerfile` |
 
 Single-bit correction lives in `recovery/crc.py` (`single_bit_fix`) and is applied by `core/blocks.py`.
 Khushi owns its behaviour; Preetika only reviews changes to `core/blocks.py` because other formats use it.
@@ -43,8 +43,7 @@ so all four of us can work in parallel from H0.
    Files with a damaged magic are still matched: 1–2 wrong magic bytes (`near_magic`), or a header
    whose record count explains the file exactly (`structure_score`). Override `structure_score()` for
    block or index formats so damaged-header files of your format are still recognised.
-4. Add a test, run `make test`, run `make run` (our samples) and `make run-real` (real samples
-   once we have them), run `make spec`.
+4. Add a test, run `make test`, `make check` (7 of 7 must still match) and `make spec`.
 
 ## Shared helpers in core/
 
@@ -64,21 +63,12 @@ so all four of us can work in parallel from H0.
   every file: magic, constant bytes, size fields, `header + N x record` layouts, record columns
   (ids, text, dates) and a draft `FormatSpec`. Add `--log --by <name>` to write its findings to
   FIELD-LOG. Start every new format with it.
-- `tools/practice.py` (or `make practice`): made-up practice formats with known answers, in
-  `practice/` (git-ignored). `prec` is like LIBRA-98 (with a decoy length field), `plog` like
-  LABLOG, `parc` like VAULT. Rehearse on these; never copy their
-  layouts into `formats/`. `tests/test_practice.py` shows the shared helpers decoding all three.
-- `tools/rehearse.py` (or `make rehearse`): runs the real `./salvage` on `practice/` with three
-  practice decoders and scores every field against the answers. The number that matters is
-  **FALSE RECOVERIES** (verified or corrected but wrong): it must stay 0. The practice decoders
-  in that file are worked examples of evidence gates for each kind of format: copy the pattern,
-  not the layout.
-- `tools/make_samples.py` (or `make samples`): regenerates `samples/` (our demo data, committed).
-  `libra98/`, `lablog/`, `vault/` are **stand-ins with an invented layout**: wire up your module
-  against them, but redo the spec from the real samples later. `wks/` (Lotus 1-2-3) and `pak/`
-  (Quake PACK) follow the real public formats. True contents are in `sample-answers/`.
-- **Real samples** (the organisers' files) go in `real-samples/<format>/`, which is git-ignored.
-  Never put them in `samples/`. Run them with `make run-real`.
+- **Real samples** are the organisers' participant kit in `real-samples/` (committed: `samples/`,
+  `expected_outputs/`, `OUTPUT-CONTRACT.md`, `HINTS.md`). `make check` runs the tool on them and
+  compares with the expected outputs; it must stay at 7 of 7. `make false-recovery` flips bits in
+  them and counts wrong-but-verified records; it must not get worse.
+- `tools/field_evidence.py`: every format hypothesis as a test on the real samples. Add a row there
+  (accepted or rejected) whenever you learn something about a format, then run it to log it.
 - `tools/survey.py` tolerates damaged files: it analyses the files most of them agree on and lists
   the rest as likely damaged.
 - `tools/hexview.py <file>`: hex + ASCII view with offsets
@@ -87,7 +77,9 @@ so all four of us can work in parallel from H0.
 
 ## Rules every module follows
 
-- **Never invent data.** Unproven = `unverified`. Unreadable = `lost` with value `None`.
+- **Output only through `output/contract.py`** (OUTPUT-CONTRACT.md). Decoders fill `FileResult`
+  (`metadata`, records with `values` / `verified` / `issues`, `DamageEntry` with `lossy`).
+- **Never invent data.** Unproven = `verified: false`. Unreadable = field `None`, never a guess.
 - **Never crash.** Use `ByteReader` (bounds-checked). Turn `OutOfBounds` into a `DamageEntry`.
 - **Verified needs evidence:** checksum pass, round-trip match, or an accepted checker verdict.
 - **Log every hypothesis from H1**, including failures, as you go. Everyone logs, not only Bhupesh:
@@ -105,7 +97,6 @@ so all four of us can work in parallel from H0.
 - Branch per task: `preetika/libra98`, `khushi/lablog-crc`, `bhupesh/checker`, `manas/report`.
 - Small PRs into `main`; `make test` must pass (CI runs it).
 - Pull `main` before you start and before you open a PR.
-- **Game archive choice is decided by H12**: Khushi picked **Quake PAK** (`formats/pak.py`), the only
-  game-archive samples in hand and shaped like VAULT (index + blobs); reason logged in FIELD-LOG.
+- **Game archives**: both WAD (s23) and PAK (s24) are decoded (`formats/archives.py`).
 - **Hour 8 checkpoint:** LIBRA-98 passes through the CLI in Docker, or everyone helps until it does.
 - Cut order if behind: receipts, real-world format, game archive. Never cut LABLOG, damage reports or the logs.

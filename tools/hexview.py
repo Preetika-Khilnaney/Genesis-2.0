@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Reverse-engineering helper for everyone (hour 0).
 
-    python tools/hexview.py samples/libra98/*            # hex + entropy + strings per file
-    python tools/hexview.py --diff samples/libra98/*     # which byte positions are constant across files
+    python tools/hexview.py real-samples/samples/s0[1-4].dat            # hex + entropy + strings per file
+    python tools/hexview.py --diff real-samples/samples/s0[1-4].dat     # which byte positions are constant across files
     python tools/hexview.py --ints 0x08 samples/x/*      # u16/u32 LE+BE at an offset, per file (spot length fields)
 
 Standard library only. Log what you learn in FIELD-LOG.md as you go.
