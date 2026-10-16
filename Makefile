@@ -1,4 +1,4 @@
-.PHONY: test run spec practice docker docker-run clean
+.PHONY: test run spec practice rehearse docker docker-run clean
 
 test:            ## run the test suite
 	python3 -m pytest -q
@@ -11,6 +11,9 @@ spec:            ## regenerate FORMAT-SPEC.md from the spec library
 
 practice:        ## made-up practice files (NOT the real formats) in practice/
 	python3 tools/practice.py --damaged
+
+rehearse:        ## run ./salvage on practice/ and score it against the answers
+	python3 tools/rehearse.py
 
 docker:          ## build the image (offline once python:3.12-slim is pulled)
 	docker build -t salvage .

@@ -17,7 +17,12 @@ with its status, plus DamageEntry records for everything that could not be trust
 
 Rules it enforces (same as everywhere else):
 - A block is VERIFIED only if its checksum passes (UNVERIFIED if the format has no checksum).
+- Header fields (seq, length...) are VERIFIED only when the checksum covers them
+  (checksum_covers="all"); otherwise UNVERIFIED, and the decoder may upgrade them with its
+  own evidence (e.g. seq counting up by 1 across good blocks).
 - CORRECTED only when exactly one single-bit flip inside the payload fixes it.
+- An EMPTY payload whose checksum is the checksum of nothing (0 for crc32) stays UNVERIFIED:
+  zeroed bytes produce exactly that, so the pass proves nothing.
 - A failed block is LOST: its byte range is reported, and with a marker the reader resyncs
   on the next block whose checksum passes. Without a marker, the stored length is trusted
   to step forward, and a warning says so.
@@ -185,7 +190,11 @@ def read_blocks(data: bytes, layout: BlockLayout, start: int = 0, max_blocks: in
             status, note = FieldStatus.UNVERIFIED, "format has no checksum"
         else:
             covered, poff = _covered(data, pos, payload_off, crc_end, L)
-            if crc.check(L.checksum_algo, covered, stored):
+            if crc.check(L.checksum_algo, covered, stored) and n == 0 and covered == b"" \
+                    and stored == crc.ALGORITHMS[L.checksum_algo](b""):
+                # zeroed length + zeroed checksum "passes" (crc32 of nothing is 0): proves nothing
+                status, note = FieldStatus.UNVERIFIED, "empty payload: its checksum proves nothing (zeroed bytes?)"
+            elif crc.check(L.checksum_algo, covered, stored):
                 status, note = FieldStatus.VERIFIED, f"{L.checksum_algo} ok"
             else:
                 fix = crc.single_bit_fix(L.checksum_algo, covered, stored)
@@ -214,7 +223,13 @@ def read_blocks(data: bytes, layout: BlockLayout, start: int = 0, max_blocks: in
             continue
 
         for f in header.values():
-            f.status = status if status != FieldStatus.CORRECTED else FieldStatus.VERIFIED
+            if L.checksum_algo and L.checksum_covers == "all":
+                f.status = FieldStatus.VERIFIED
+                f.note = f"covered by {L.checksum_algo}"
+            else:
+                # the checksum protects only the payload: a flipped bit here would go unnoticed
+                f.status = FieldStatus.UNVERIFIED
+                f.note = "not covered by the checksum"
         scan.blocks.append(Block(idx, pos, end, payload_off, payload, header, status, note))
         pos, idx = end, idx + 1
     return scan

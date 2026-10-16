@@ -40,3 +40,27 @@ def rank_single_byte_keys(samples: list[bytes]) -> list[tuple[int, float]]:
 
 
 # TODO(Khushi): multi-byte repeating keys (split by key position, rank each byte)
+
+
+def is_clean_fixed_string(data: bytes) -> bool:
+    """Printable text followed by at least one NUL of padding: what a fixed-width string
+    field looks like under the right key. The padding is the real fingerprint: almost any
+    key makes short names printable, but only the right key turns the padding into zeros."""
+    core = data.rstrip(b"\x00")
+    return bool(core) and len(core) < len(data) and all(32 <= c < 127 for c in core)
+
+
+def best_fixed_string_key(fields: list[bytes], min_share: float = 0.5, min_margin: float = 0.3) -> tuple[int | None, float]:
+    """Single-byte key that turns the most fields into clean NUL-padded strings.
+    Returns (key, share) only when the winner covers >= min_share of the fields and beats
+    the runner-up by >= min_margin; otherwise (None, best_share): leave strings unverified.
+    Tolerates a few damaged fields, so one corrupt sample cannot flip the decision.
+    min_share is 0.5 because names that fill the whole field have no padding."""
+    if not fields:
+        return None, 0.0
+    shares = sorted(((sum(is_clean_fixed_string(xor(f, bytes([k]))) for f in fields) / len(fields), k)
+                     for k in range(256)), reverse=True)
+    (top, key), (second, _) = shares[0], shares[1]
+    if top >= min_share and top - second >= min_margin:
+        return key, top
+    return None, top
