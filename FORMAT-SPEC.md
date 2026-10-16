@@ -87,9 +87,27 @@ _Status: in progress (decoder not ready)._
 
 ## vault
 
-TODO
+A 6-byte header with the entry count, an index table of 24-byte entries, then the blobs back to back. Names are XORed with a single-byte key; blobs are run-length encoded (count, byte) pairs. No checksum. STAND-IN layout from our own samples; redo from the real samples.
 
-- Magic: `none` at offset 0
+- Magic: `56 41 4c 54` at offset 0
 - Endianness: little
 
-_Status: in progress (decoder not ready)._
+### Header
+
+| Field | Type | Length | Description | Evidence |
+| --- | --- | --- | --- | --- |
+| magic | bytes | 4 | file signature 'VALT' | FIELD-LOG: same in all 6 samples |
+| count | u16 | 2 | number of index entries | FIELD-LOG: first blob starts at 6 + count * 24 in every sample |
+
+### Record
+
+| Field | Type | Length | Description | Evidence |
+| --- | --- | --- | --- | --- |
+| name | str | 12 | entry name, XORed with a single-byte key, NUL-padded | FIELD-LOG: key 0x5C wins on every sample; not per file or per entry |
+| offset | u32 | 4 | absolute offset of the blob | FIELD-LOG: blobs tile the data area exactly in every sample |
+| size | u32 | 4 | stored (compressed) blob size | FIELD-LOG: blobs chain end to start to EOF; 56 in every sample entry |
+| raw_size | u32 | 4 | decoded blob size | FIELD-LOG: equals the RLE-decoded size of every blob |
+| data | bytes | var | decoded blob content (text when printable, else hex) | FIELD-LOG: RLE 'pairs' round-trips every blob; 'packbits' none |
+
+- The RLE variant and the XOR key are chosen from the samples at run time (all-samples rule).
+- No checksum: a bit flip in a literal byte that keeps the text printable cannot be detected.
