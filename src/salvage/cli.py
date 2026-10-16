@@ -36,7 +36,7 @@ class Scanned:
 
 def scan(path: Path, root: Path) -> Scanned:
     """Pass 1: read and fingerprint one file. Never raises."""
-    rel = str(path.relative_to(root))
+    rel = path.relative_to(root).as_posix()  # "/" on every OS, so output is identical everywhere
     try:
         data = path.read_bytes()
     except Exception as e:
