@@ -207,7 +207,8 @@ The documentation is a starting hypothesis; where the bytes disagree, the bytes 
   Cells start with u8 format, u16 col, u16 row:
   0x000C BLANK    -                                    0x000D INTEGER  i16
   0x000E NUMBER   f64                                  0x000F LABEL    prefix char + NUL text
-  0x0010 FORMULA  f64 cached value, u16 length, formula bytes (kept as hex: formula_raw_hex)
+  0x0010 FORMULA  f64 cached value, u16 length, formula bytes (kept as hex: formula_raw_hex; also
+                  decoded to text, e.g. "B2*C2", when every opcode is known: see decode_formula)
   Label prefix: ' left, " right, ^ center, \ repeat.
   Format byte: bit7 protected, bits 4-6 type (0 fixed, 1 sci, 2 currency, 3 percent, 4 comma,
   7 special), bits 0-3 decimals or special subtype (special 2/3/4 = dates, serial from 1899-12-30).
