@@ -70,16 +70,13 @@ def test_cli_reports_bad_magic_and_never_verifies_damaged_bytes(tmp_path):
 
     flipped = json.loads((out / "flipped.bin.json").read_text())
     assert flipped["format"] == "toy_header"
-    assert flipped["extra"]["identified_by"] == "near_magic"
-    assert flipped["damage"][0]["cause"] == "bad_magic"
-    assert flipped["header"]["magic"]["status"] == "unverified"
-    assert flipped["header"]["count"]["status"] == "verified"
+    assert flipped["metadata"]["identified_by"] == "near_magic"
+    assert flipped["damage"][0]["kind"] == "invalid_value" and flipped["damage"][0]["lossy"] is False
+    assert flipped["damage"][0]["offset"] == 0
     assert len(flipped["records"]) == 2
 
     wiped = json.loads((out / "wiped.bin.json").read_text())
-    assert wiped["extra"]["identified_by"] == "structure"
+    assert wiped["metadata"]["identified_by"] == "structure"
     assert "structure explains the whole file" in wiped["warnings"][0]
-    assert wiped["damage"][0] == {"start": 0, "end": 8, "cause": "bad_magic",
-                                  "detail": wiped["warnings"][0], "affected": ["magic"]}
-    assert wiped["header"]["magic"]["status"] == "unverified"
-    assert wiped["header"]["count"]["status"] == "verified"
+    assert wiped["damage"][0] == {"kind": "invalid_value", "offset": 0, "length": 8,
+                                  "detail": wiped["warnings"][0], "lossy": False}

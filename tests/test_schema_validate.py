@@ -20,7 +20,7 @@ except ImportError:
     _HAS_JSONSCHEMA = False
 
 from salvage.core.model import FieldStatus
-from salvage.output.schema_validate import VALID_STATUSES, validate_output_dir
+from salvage.output.schema_validate import FIELD_STATUSES, VALID_STATUSES, validate_output_dir
 from tests.harness import (
     assert_no_invented_values,
     assert_only_valid_statuses,
@@ -35,12 +35,9 @@ pytestmark = pytest.mark.skipif(
 
 
 def test_valid_statuses_constant_matches_model():
-    """Sanity: VALID_STATUSES agrees with the FieldStatus enum."""
-    model_values = {s.value for s in FieldStatus}
-    assert VALID_STATUSES == model_values, (
-        f"VALID_STATUSES {VALID_STATUSES} != FieldStatus enum values {model_values}. "
-        "Update schema_validate.py or model.py."
-    )
+    """Sanity: internal field statuses agree with the model; file statuses are the contract's five."""
+    assert FIELD_STATUSES == {s.value for s in FieldStatus}
+    assert VALID_STATUSES == {"ok", "partial", "unsupported", "unrecognized", "failed"}
 
 
 def test_unknown_files_pass_schema(tmp_path):
@@ -85,16 +82,12 @@ def test_illegal_status_label_is_caught(tmp_path):
     """validate_output_dir must report an error for an illegal status label."""
     out = tmp_path / "out"
     out.mkdir()
-    doc = {
-        "source_file": "x.bin", "format": "unknown", "records": [],
-        "header": {"f": {"value": 1, "status": "guessed", "offset": None, "length": None, "note": None}},
-        "damage": [], "warnings": [], "error": None, "extra": {},
-    }
+    doc = {"source_file": "x.bin", "format": "UNKNOWN", "status": "guessed", "metadata": {},
+           "records": [], "damage": []}
     (out / "x.bin.json").write_text(json.dumps(doc))
-    # Also write a minimal report so validate_output_dir doesn't complain about it missing
     (out / "report.json").write_text(json.dumps(
-        {"files_processed": 1, "files": [{"source_file": "x.bin", "format": "unknown", "records": 0}]}
-    ))
+        {"tool_version": "0", "files": [{"file": "x.bin", "format": "UNKNOWN", "status": "unrecognized",
+                                         "records": 0, "damage": 0}], "totals": {}}))
     errs = validate_output_dir(out)
     assert any("guessed" in e for e in errs), f"Expected 'guessed' error, got: {errs}"
 

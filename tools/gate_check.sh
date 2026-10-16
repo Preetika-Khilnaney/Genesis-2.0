@@ -9,11 +9,11 @@
 #   6. Exit non-zero on any failure
 #
 # Usage: bash tools/gate_check.sh [input_dir] [output_dir]
-# Defaults: samples/, out/
+# Defaults: real-samples/samples/, out/
 
 set -euo pipefail
 
-INPUT_DIR="${1:-samples}"
+INPUT_DIR="${1:-real-samples/samples}"
 OUTPUT_DIR="${2:-out}"
 IMAGE="salvage"
 

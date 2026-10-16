@@ -1,129 +1,76 @@
 #!/usr/bin/env bash
 # tools/demo.sh  OWNER: Manas (delivery)
-# 3-4 minute scripted demo. Narration lines start with 'echo'.
-# Usage: bash tools/demo.sh
-set -euo pipefail
+# 3-4 minute scripted demo on the organisers' real samples.
+# Usage: bash tools/demo.sh            (uses Docker with networking off if the image exists)
+#        DOCKER=0 bash tools/demo.sh   (runs ./salvage directly)
+set -uo pipefail
 
-SAMPLES="samples"
+SAMPLES="real-samples/samples"
 OUT="demo_out"
 IMAGE="salvage"
+rm -rf "$OUT"; mkdir -p "$OUT"
+
+say() { echo ""; echo "$@"; }
+show() { PYTHONPATH=src python3 -c "$1"; }
 
 echo "============================================================"
-echo "  GENESIS 2.0 · PS 02 — Legacy File Recovery Demo"
-echo "  Team: Chargeman Ken"
+echo "  GENESIS 2.0 · PS 02 — Salvage · Team Chargeman Ken"
 echo "============================================================"
-sleep 1
 
-# ── Step 1: Clean LIBRA-98 run ────────────────────────────────────────────────
-echo ""
-echo "[1/5] CLEAN LIBRA-98 DECODE — every field verified by round-trip"
-echo "  Running: docker run --network none salvage samples/libra98 $OUT/libra98"
-mkdir -p "$OUT/libra98" "$OUT/damaged" "$OUT/unknown"
-docker run --rm --network none \
-  -v "$(pwd)/$SAMPLES/libra98:/in:ro" \
-  -v "$(pwd)/$OUT/libra98:/out" \
-  "$IMAGE" /in /out 2>&1 || true
-echo ""
-echo "  Output summary (report.json):"
-python3 -c "
-import json, sys
-r = json.load(open('$OUT/libra98/report.json'))
-for f in r.get('files', []):
-    if not f.get('damage'):
-        print(f'  {f[\"source_file\"]}: format={f[\"format\"]}, records={f[\"records\"]}, status={f[\"field_status\"]}')
-" 2>/dev/null || echo "  (no libra98 samples yet)"
-sleep 1
-
-# ── Step 2: Damaged file — damage report ─────────────────────────────────────
-echo ""
-echo "[2/5] DAMAGED FILE — lost ranges and causes"
-DAMAGED_DIR="tests/fixtures/damaged"
-if [ ! -d "$DAMAGED_DIR" ]; then
-  DAMAGED_DIR="$SAMPLES/libra98"
-fi
-docker run --rm --network none \
-  -v "$(pwd)/$DAMAGED_DIR:/in:ro" \
-  -v "$(pwd)/$OUT/damaged:/out" \
-  "$IMAGE" /in /out 2>&1 || true
-python3 -c "
-import json
-r = json.load(open('$OUT/damaged/report.json'))
-shown = 0
-for f in r.get('files', []):
-    if f.get('damage'):
-        print(f'  {f[\"source_file\"]}: {len(f[\"damage\"])} damage entries')
-        for d in f['damage']:
-            print(f'    bytes {d[\"start\"]}-{d[\"end\"]}: cause={d[\"cause\"]}  {d[\"detail\"]}')
-        shown += 1
-        if shown >= 3:
-            break
-" 2>/dev/null || echo "  (no damaged files shown)"
-sleep 1
-
-# ── Step 3: Unknown file — entropy map ───────────────────────────────────────
-echo ""
-echo "[3/5] UNKNOWN FILE — entropy map and strings"
-echo "some_random_data" | base64 > /tmp/demo_unknown.bin
-docker run --rm --network none \
-  -v "/tmp:/in:ro" \
-  -v "$(pwd)/$OUT/unknown:/out" \
-  "$IMAGE" /in /out 2>&1 || true
-python3 -c "
-import json
-r = json.load(open('$OUT/unknown/report.json'))
-for f in r.get('files', []):
-    if f['format'] == 'unknown':
-        print(f'  {f[\"source_file\"]}: format=unknown, no records invented')
-" 2>/dev/null || echo "  (demo unknown file shown)"
-sleep 1
-
-# ── Step 4: Receipt tamper check ─────────────────────────────────────────────
-echo ""
-echo "[4/5] RECEIPT CHAIN — tamper-evident audit trail"
-if [ -f "$OUT/libra98/receipts.jsonl" ]; then
-  echo "  Verifying clean chain..."
-  PYTHONPATH=src python3 -c "
-from salvage.output.receipts import verify_chain
-from pathlib import Path
-ok = verify_chain(Path('$OUT/libra98/receipts.jsonl'))
-print('  Chain:', 'PASS' if ok else 'FAIL')
-"
-  echo ""
-  echo "  Simulating tamper (editing a receipt)..."
-  TMPFILE=$(mktemp)
-  head -1 "$OUT/libra98/receipts.jsonl" | sed 's/libra98/tampered/' > "$TMPFILE"
-  tail -n +2 "$OUT/libra98/receipts.jsonl" >> "$TMPFILE" || true
-  PYTHONPATH=src python3 -c "
-from salvage.output.receipts import verify_chain
-from pathlib import Path
-ok = verify_chain(Path('$TMPFILE'))
-print('  Tampered chain:', 'PASS (unexpected!)' if ok else 'FAIL (detected — correct!)')
-" || true
-  rm -f "$TMPFILE"
+say "[1/5] ONE COMMAND, OFFLINE: 30 legacy files, 10 formats, plus hostile files"
+if [ "${DOCKER:-1}" = "1" ] && docker image inspect "$IMAGE" >/dev/null 2>&1; then
+  echo "  docker run --network none salvage $SAMPLES $OUT"
+  docker run --rm --network none -v "$(pwd)/$SAMPLES:/in:ro" -v "$(pwd)/$OUT:/out" "$IMAGE" /in /out
 else
-  echo "  (no receipts.jsonl yet — run with real samples)"
+  echo "  ./salvage $SAMPLES $OUT"
+  ./salvage "$SAMPLES" "$OUT"
 fi
-sleep 1
-
-# ── Step 5: Corruption lab measured numbers ───────────────────────────────────
-echo ""
-echo "[5/5] CORRUPTION LAB — empirical risk calibration & measured false recoveries"
-PYTHONPATH=src python3 -m salvage.corruption_lab.calibrate --runs 3 --out "$OUT/corruption_lab_results.json"
-echo ""
-echo "  Measured calibration results ($OUT/corruption_lab_results.json):"
-python3 -c "
+echo "  exit code: $?"
+show "
 import json
-data = json.load(open('$OUT/corruption_lab_results.json'))
-totals = data.get('totals', {})
-print(f'  Tested files:          {totals.get(\"tested_files\")}')
-print(f'  Total fields:          {totals.get(\"total_fields\")}')
-print(f'  Verified fields:       {totals.get(\"verified_fields\")}')
-print(f'  False recoveries:      {totals.get(\"false_recoveries\")}')
-print(f'  Measured false-rec %:  {totals.get(\"false_recovery_rate\") * 100:.2f}%')
-print(f'  Measured false-loss %: {totals.get(\"false_loss_rate\") * 100:.2f}%')
-"
+r = json.load(open('$OUT/report.json'))
+for f in r['files']:
+    print(f\"  {f['file']:22} {f['format']:12} {f['status']:13} records={f['records']:<3} damage={f['damage']}\")
+print('  totals:', r['totals'])"
+
+say "[2/5] MATCHES THE ORGANISERS' EXPECTED OUTPUTS"
+python3 tools/check_expected.py --out "$OUT" | tail -1
+
+say "[3/5] DAMAGE IS REPORTED, NEVER HIDDEN (s04: library file cut off mid-record)"
+show "
+import json
+d = json.load(open('$OUT/s04.dat.json'))
+print('  status:', d['status'])
+for x in d['damage']: print(f\"  damage: {x['kind']} at byte {x['offset']} lossy={x['lossy']}: {x['detail']}\")
+print('  last record:', d['records'][-1])"
+
+say "[4/5] PROVEN REPAIR (s07 lab log, s10 vault): exactly one flipped bit explains the CRC failure"
+show "
+import json
+for f in ('s07.dat', 's10.dat'):
+    d = json.load(open('$OUT/' + f + '.json'))
+    for x in d['damage']: print(f\"  {f}: {x['kind']} lossy={x['lossy']}: {x['detail']}\")"
+
+say "[5/5] HOSTILE FILES DO NOT CRASH IT, AND NOTHING IS INVENTED"
+show "
+import json
+for f in ('s25_random.bin', 's26_empty.dat', 's27_notes.txt', 's28_tiny.dat', 's29_almost_libra.dat', 's30_png_like.dat'):
+    d = json.load(open('$OUT/' + f + '.json'))
+    print(f\"  {f:22} {d['status']:13} records={len(d['records'])}  {d['metadata'].get('looks_like', '')}\")"
+
+if [ -f "$OUT/receipts.jsonl" ]; then
+  say "BONUS: tamper-evident receipts"
+  show "
+from pathlib import Path
+from salvage.output.receipts import verify_chain
+p = Path('$OUT/receipts.jsonl')
+print('  receipt chain:', 'PASS' if verify_chain(p) else 'FAIL')
+t = Path('$OUT/receipts.tampered.jsonl')
+t.write_text(p.read_text().replace('LIBRA-98', 'LIBRA-99', 1))
+print('  after editing one receipt:', 'PASS (unexpected!)' if verify_chain(t) else 'FAIL (tampering detected)')"
+fi
 
 echo ""
 echo "============================================================"
-echo "  Demo complete. See $OUT/ for all outputs."
+echo "  Demo complete. Outputs in $OUT/"
 echo "============================================================"
