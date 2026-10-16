@@ -43,7 +43,8 @@ so all four of us can work in parallel from H0.
    Files with a damaged magic are still matched: 1–2 wrong magic bytes (`near_magic`), or a header
    whose record count explains the file exactly (`structure_score`). Override `structure_score()` for
    block or index formats so damaged-header files of your format are still recognised.
-4. Add a test, run `make test`, run `./salvage samples out`, run `make spec`.
+4. Add a test, run `make test`, run `make run` (our samples) and `make run-real` (real samples
+   once we have them), run `make spec`.
 
 ## Shared helpers in core/
 
@@ -65,13 +66,21 @@ so all four of us can work in parallel from H0.
   FIELD-LOG. Start every new format with it.
 - `tools/practice.py` (or `make practice`): made-up practice formats with known answers, in
   `practice/` (git-ignored). `prec` is like LIBRA-98 (with a decoy length field), `plog` like
-  LABLOG, `parc` like VAULT. Rehearse on these until the real samples arrive; never copy their
+  LABLOG, `parc` like VAULT. Rehearse on these; never copy their
   layouts into `formats/`. `tests/test_practice.py` shows the shared helpers decoding all three.
 - `tools/rehearse.py` (or `make rehearse`): runs the real `./salvage` on `practice/` with three
   practice decoders and scores every field against the answers. The number that matters is
   **FALSE RECOVERIES** (verified or corrected but wrong): it must stay 0. The practice decoders
   in that file are worked examples of evidence gates for each kind of format: copy the pattern,
   not the layout.
+- `tools/make_samples.py` (or `make samples`): regenerates `samples/` (our demo data, committed).
+  `libra98/`, `lablog/`, `vault/` are **stand-ins with an invented layout**: wire up your module
+  against them, but redo the spec from the real samples later. `wks/` (Lotus 1-2-3) and `pak/`
+  (Quake PACK) follow the real public formats. True contents are in `sample-answers/`.
+- **Real samples** (the organisers' files) go in `real-samples/<format>/`, which is git-ignored.
+  Never put them in `samples/`. Run them with `make run-real`.
+- `tools/survey.py` tolerates damaged files: it analyses the files most of them agree on and lists
+  the rest as likely damaged.
 - `tools/hexview.py <file>`: hex + ASCII view with offsets
 - `tools/corrupt.py <file> --out <dir>`: damaged copies + `manifest.json`
 - `tools/log.py`: add a FIELD-LOG row

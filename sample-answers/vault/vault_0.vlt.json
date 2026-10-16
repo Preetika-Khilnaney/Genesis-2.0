@@ -1,0 +1,44 @@
+{
+  "format": "vault (STAND-IN: invented layout, not the real format)",
+  "header": {
+    "entry_count": 5
+  },
+  "notes": "names XOR 0x5C; blobs RLE as (count, byte) pairs",
+  "entries": [
+    {
+      "name": "SND00.DAT",
+      "offset": 126,
+      "size": 56,
+      "raw_size": 77,
+      "content": "entry 0 of archive 0\n=====================\n                              end\n"
+    },
+    {
+      "name": "LVL01.DAT",
+      "offset": 182,
+      "size": 56,
+      "raw_size": 80,
+      "content": "entry 1 of archive 0\n=================================\n                     end\n"
+    },
+    {
+      "name": "MAP02.DAT",
+      "offset": 238,
+      "size": 56,
+      "raw_size": 56,
+      "content": "entry 2 of archive 0\n===============\n               end\n"
+    },
+    {
+      "name": "LVL03.DAT",
+      "offset": 294,
+      "size": 56,
+      "raw_size": 46,
+      "content": "entry 3 of archive 0\n===============\n     end\n"
+    },
+    {
+      "name": "MAP04.DAT",
+      "offset": 350,
+      "size": 56,
+      "raw_size": 78,
+      "content": "entry 4 of archive 0\n==========================\n                          end\n"
+    }
+  ]
+}

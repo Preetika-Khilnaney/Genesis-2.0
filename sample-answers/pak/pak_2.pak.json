@@ -1,0 +1,21 @@
+{
+  "format": "pak (Quake PACK archive, real public format)",
+  "layout": "'PACK', i32 dir_offset, i32 dir_length; directory at the END: 64-byte entries of name[56] NUL-padded, i32 offset, i32 size",
+  "entries": [
+    {
+      "name": "progs/player.mdl",
+      "offset": 12,
+      "size": 137
+    },
+    {
+      "name": "sound/door.wav",
+      "offset": 149,
+      "size": 200
+    },
+    {
+      "name": "maps/e1m1.bsp",
+      "offset": 349,
+      "size": 57
+    }
+  ]
+}

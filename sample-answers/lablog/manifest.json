@@ -1,0 +1,70 @@
+[
+  {
+    "file": "lablog_0.damaged-trunc90.lbl",
+    "source": "lablog_0.lbl",
+    "type": "truncate",
+    "keep": 242
+  },
+  {
+    "file": "lablog_0.damaged-flip0_bit21.lbl",
+    "source": "lablog_0.lbl",
+    "type": "bit_flip",
+    "bit": 21,
+    "byte": 2
+  },
+  {
+    "file": "lablog_0.damaged-zeroed_209_235.lbl",
+    "source": "lablog_0.lbl",
+    "type": "zeroed",
+    "start": 209,
+    "end": 235
+  },
+  {
+    "file": "lablog_0.damaged-inserted_20_1.lbl",
+    "source": "lablog_0.lbl",
+    "type": "inserted",
+    "offset": 20,
+    "count": 1
+  },
+  {
+    "file": "lablog_0.damaged-inserted_44_13.lbl",
+    "source": "lablog_0.lbl",
+    "type": "inserted",
+    "offset": 44,
+    "count": 13
+  },
+  {
+    "file": "lablog_1.damaged-trunc90.lbl",
+    "source": "lablog_1.lbl",
+    "type": "truncate",
+    "keep": 123
+  },
+  {
+    "file": "lablog_1.damaged-flip0_bit797.lbl",
+    "source": "lablog_1.lbl",
+    "type": "bit_flip",
+    "bit": 797,
+    "byte": 99
+  },
+  {
+    "file": "lablog_1.damaged-zeroed_79_92.lbl",
+    "source": "lablog_1.lbl",
+    "type": "zeroed",
+    "start": 79,
+    "end": 92
+  },
+  {
+    "file": "lablog_1.damaged-inserted_11_1.lbl",
+    "source": "lablog_1.lbl",
+    "type": "inserted",
+    "offset": 11,
+    "count": 1
+  },
+  {
+    "file": "lablog_1.damaged-inserted_42_6.lbl",
+    "source": "lablog_1.lbl",
+    "type": "inserted",
+    "offset": 42,
+    "count": 6
+  }
+]

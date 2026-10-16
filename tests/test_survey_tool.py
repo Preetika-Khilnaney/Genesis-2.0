@@ -29,3 +29,17 @@ def test_survey_finds_layout(tmp_path, capsys):
 def test_survey_needs_two_files(tmp_path, capsys):
     (tmp_path / "only.bin").write_bytes(make(2, 0))
     assert survey.main([str(tmp_path)]) == 1
+
+
+def test_survey_tolerates_damaged_files(tmp_path, capsys):
+    """Real sample packs include damaged files: they must not hide the layout of the rest."""
+    for i, n in enumerate((2, 5, 3, 4, 6)):
+        (tmp_path / f"s{i}.bin").write_bytes(make(n, i))
+    (tmp_path / "cut.bin").write_bytes(make(5, 9)[:-7])                 # truncated
+    z = bytearray(make(4, 8)); z[14:30] = bytes(16)                     # first record zeroed
+    (tmp_path / "zeroed.bin").write_bytes(bytes(z))
+    assert survey.main([str(tmp_path), "--name", "demo"]) == 0
+    out = capsys.readouterr().out
+    assert "look damaged" in out and "cut.bin" in out
+    assert "header 14    record 16" in out
+    assert "counts up by 1" in out

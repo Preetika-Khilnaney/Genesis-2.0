@@ -1,12 +1,12 @@
 """LIBRA-98 (THE GATE). OWNERS: Preetika (decoder) + Bhupesh (field evidence).
 
 Steps:
- 1. Run `python3 tools/survey.py samples/libra98/` for magic, record count, header/record
+ 1. Run `python3 tools/survey.py real-samples/libra98/` (samples/libra98/ until then) for magic, record count, header/record
     sizes and record columns, then confirm each in `python3 tools/hexview.py <file>`.
  2. Fill in LIBRA98_SPEC below (every field, with desc + evidence).
  3. Log every hypothesis in FIELD-LOG.md, including rejected ones.
  4. Fill CHECKS below (one per record field), then set ready = True.
- 5. Run `make test` and `./salvage samples out`. Pattern to copy: PracticeRec in tools/rehearse.py.
+ 5. Run `make test`, `make run` and `make run-real`. Pattern to copy: PracticeRec in tools/rehearse.py.
 
 The field list below is a PLACEHOLDER showing the syntax - replace it from the samples.
 """
