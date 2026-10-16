@@ -47,7 +47,7 @@ def test_length_field_vs_lookalike():
 
 
 def test_best_of_requires_a_single_survivor():
-    samples = [b"\x05\x00abcde", b"\x02\x00xy"]
+    samples = [b"\x05\x00abcde", b"\x02\x00xy", b"\x03\x00xyz"]
     winner = best_of("toy", "u16@0", samples, {
         "length of rest": lambda s: candidates.is_length_of_rest(s, 0, 2),
         "file size": lambda s: candidates.is_file_size(s, 0, 2),
