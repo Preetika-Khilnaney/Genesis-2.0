@@ -35,11 +35,21 @@ ENDIANS = (("le", "<"), ("be", ">"))
 CODES = {1: "B", 2: "H", 4: "I"}
 
 
+SKIP_DIRS = {"answers", "out"}
+SKIP_NAMES = {"README.md", "manifest.json"}
+
+
 def load(paths: list[Path]) -> list[tuple[str, bytes]]:
+    """Sample files only: skips hidden files, README/manifest, *.json and answers/ folders."""
     files: list[Path] = []
     for p in paths:
-        files += sorted(q for q in p.rglob("*") if q.is_file()) if p.is_dir() else [p]
-    return [(str(f), f.read_bytes()) for f in files if not f.name.startswith(".") and f.name != "README.md"]
+        if p.is_dir():
+            files += sorted(q for q in p.rglob("*") if q.is_file()
+                            and not SKIP_DIRS & set(q.relative_to(p).parts[:-1]))
+        else:
+            files.append(p)
+    return [(str(f), f.read_bytes()) for f in files
+            if not f.name.startswith(".") and f.name not in SKIP_NAMES and f.suffix != ".json"]
 
 
 def uint(data: bytes, off: int, size: int, e: str) -> int | None:

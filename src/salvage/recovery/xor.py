@@ -16,7 +16,12 @@ _COMMON = set(b"etaoinshrdlu ETAOINSHRDLU0123456789")
 
 def text_score(data: bytes) -> float:
     """How much `data` looks like text: printable share, boosted by common letters,
-    digits and spaces. Printable share alone ties keys that only flip letter case."""
+    digits and spaces. Printable share alone ties keys that only flip letter case.
+
+    Trailing NUL bytes are padding in fixed-width string fields: they are dropped
+    before scoring, so the right key is not punished for them (and a wrong key that
+    turns the padding into letters does not win)."""
+    data = data.rstrip(b"\x00")
     if not data:
         return 0.0
     printable = sum(1 for b in data if 32 <= b < 127 or b in (9, 10, 13)) / len(data)

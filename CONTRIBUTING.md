@@ -60,6 +60,10 @@ so all four of us can work in parallel from H0.
   every file: magic, constant bytes, size fields, `header + N x record` layouts, record columns
   (ids, text, dates) and a draft `FormatSpec`. Add `--log --by <name>` to write its findings to
   FIELD-LOG. Start every new format with it.
+- `tools/practice.py` (or `make practice`): made-up practice formats with known answers, in
+  `practice/` (git-ignored). `prec` is like LIBRA-98 (with a decoy length field), `plog` like
+  LABLOG, `parc` like VAULT. Rehearse on these until the real samples arrive; never copy their
+  layouts into `formats/`. `tests/test_practice.py` shows the shared helpers decoding all three.
 - `tools/hexview.py <file>`: hex + ASCII view with offsets
 - `tools/corrupt.py <file> --out <dir>`: damaged copies + `manifest.json`
 - `tools/log.py`: add a FIELD-LOG row
