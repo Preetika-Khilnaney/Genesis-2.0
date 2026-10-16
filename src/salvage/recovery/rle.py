@@ -4,8 +4,9 @@ RLE has many variants. Implement each candidate as a (decode, encode) pair, then
 keep the one where encode(decode(blob)) == blob on every sample (round-trip proof).
 Log every variant tried in FIELD-LOG.md.
 
-TODO(Khushi): confirm VAULT's variant from the samples. `pairs` below is ONE
-common candidate, not a confirmed spec.
+VAULT (stand-in samples): `pairs` round-trips every blob of every sample and `packbits`
+none (FIELD-LOG, format "vault"). The decoder still pins the variant from the samples at
+run time, so a real VAULT using PackBits would be picked up without a code change.
 """
 from __future__ import annotations
 
@@ -36,9 +37,59 @@ def encode_pairs(data: bytes) -> bytes:
     return bytes(out)
 
 
+def decode_packbits(blob: bytes) -> bytes:
+    """Candidate: PackBits (Apple / TIFF). Header h as a signed byte:
+    0..127 -> copy the next h+1 bytes; -1..-127 -> repeat the next byte 1-h times; -128 -> no-op."""
+    out = bytearray()
+    i = 0
+    while i < len(blob):
+        h = blob[i] - 256 if blob[i] > 127 else blob[i]
+        i += 1
+        if h >= 0:
+            if i + h + 1 > len(blob):
+                raise RLEError(f"literal run of {h + 1} bytes runs past the blob at {i - 1}")
+            out += blob[i:i + h + 1]
+            i += h + 1
+        elif h != -128:
+            if i >= len(blob):
+                raise RLEError(f"repeat run at {i - 1} has no byte to repeat")
+            out += bytes([blob[i]]) * (1 - h)
+            i += 1
+    return bytes(out)
+
+
+def encode_packbits(data: bytes) -> bytes:
+    """Classic PackBits encoder: runs of 2..128 equal bytes become repeats, the rest literals
+    of up to 128 bytes. Other encoders exist (e.g. some never emit 2-byte repeats); the round
+    trip on every sample tells them apart."""
+    out = bytearray()
+    lit = bytearray()
+
+    def flush() -> None:
+        while lit:
+            chunk = lit[:128]
+            out.append(len(chunk) - 1)
+            out.extend(chunk)
+            del lit[:128]
+
+    i = 0
+    while i < len(data):
+        j = i
+        while j < len(data) and data[j] == data[i] and j - i < 128:
+            j += 1
+        if j - i >= 2:
+            flush()
+            out += bytes([(1 - (j - i)) & 0xFF, data[i]])
+        else:
+            lit.append(data[i])
+        i = j
+    flush()
+    return bytes(out)
+
+
 VARIANTS = {
     "pairs": (decode_pairs, encode_pairs),
-    # TODO(Khushi): add PackBits / escape-byte variants if the samples need them
+    "packbits": (decode_packbits, encode_packbits),
 }
 
 
