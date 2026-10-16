@@ -38,14 +38,14 @@ def run_salvage(
     code = run_cli(input_dir, output_dir, extra_args)
 
     report_path = output_dir / "report.json"
-    report = json.loads(report_path.read_text()) if report_path.exists() else {}
+    report = json.loads(report_path.read_text(encoding="utf-8")) if report_path.exists() else {}
 
     outputs: dict[str, dict] = {}
     for p in sorted(output_dir.glob("*.json")):
         if p.name == "report.json":
             continue
         try:
-            outputs[p.name] = json.loads(p.read_text())
+            outputs[p.name] = json.loads(p.read_text(encoding="utf-8"))
         except Exception:  # noqa: BLE001
             outputs[p.name] = {}
 

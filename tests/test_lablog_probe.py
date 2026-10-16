@@ -23,6 +23,7 @@ def block(seq: int, payload: bytes) -> bytes:
 
 def make(n: int, tag: int) -> bytes:
     payloads = [f"id={tag * 10 + i};v={i * 7 % 13}".encode() for i in range(n)]
+    payloads[1] += b";note=" + b"x" * 300      # one length > 255, so a u8 reading cannot walk the file
     return b"SYNTH" + bytes([tag]) + b"".join(block(i, p) for i, p in enumerate(payloads))
 
 

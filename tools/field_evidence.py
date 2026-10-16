@@ -37,7 +37,7 @@ def f(name: str) -> bytes:
 
 
 def exp(name: str) -> dict:
-    return json.loads((EXP / f"{name}.json").read_text())
+    return json.loads((EXP / f"{name}.json").read_text(encoding="utf-8"))
 
 
 u16 = lambda b, o: struct.unpack_from("<H", b, o)[0]  # noqa: E731

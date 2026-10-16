@@ -10,7 +10,13 @@ Public formats, checked against real-samples s23 (WAD) and s24 (PAK); evidence i
                directory entries (64 bytes): name[56] NUL-terminated, i32 offset, i32 size.
 
 Records: name, offset, size, sha256 of the lump/file bytes. An entry is verified when it lies
-inside the file and does not start inside the header or directory.
+inside the file, does not start inside the header or directory, AND it is not next to a break in
+the tiling: sorted by offset, the entries with data must start at 12, touch end to start and end
+where the directory begins (zero-size markers are skipped). Both real samples tile exactly.
+A damaged offset or size always breaks the chain right next to its own entry, so only the
+entries on either side of a break are suspect; the rest stay verified.
+Neither format has a checksum, so a flipped bit inside file data or inside a name cannot be
+seen: tools/false_recovery.py measures that rate.
 """
 from __future__ import annotations
 
@@ -49,7 +55,30 @@ def _name(raw: bytes) -> str:
     return raw.split(b"\0")[0].decode("latin-1")
 
 
-def _entries(res: FileResult, b: bytes, entries: list[tuple[int, str, int, int]], dir_start: int, dir_end: int):
+def _suspects(entries: list[tuple[int, str, int, int]], dir_start: int, complete: bool) -> set[int]:
+    """Indexes of entries next to a break in the tiling of [12, dir_start). An incomplete
+    directory (cut off) cannot show where the chain should end, so all entries are suspect."""
+    if not complete:
+        return set(range(len(entries)))
+    spans = sorted((e[2], e[2] + e[3], i) for i, e in enumerate(entries) if e[3] > 0)
+    bad: set[int] = set()
+    if spans and spans[0][0] != 12:
+        bad.add(spans[0][2])
+    for (_, end, i), (off, _, j) in zip(spans, spans[1:]):
+        if end != off:
+            bad |= {i, j}
+    if spans and spans[-1][1] != dir_start:
+        bad.add(spans[-1][2])
+    return bad
+
+
+def _entries(res: FileResult, b: bytes, entries: list[tuple[int, str, int, int]], dir_start: int, dir_end: int,
+             complete: bool = True):
+    suspect = _suspects(entries, dir_start, complete)
+    if suspect:
+        res.warnings.append("the entries do not tile the area between the header and the directory exactly: "
+                            f"{len(suspect)} entr{'y' if len(suspect) == 1 else 'ies'} next to a gap or overlap "
+                            "cannot be confirmed")
     for i, (eo, name, off, size) in enumerate(entries):
         issues = []
         vals = {"name": name, "offset": off, "size": size, "sha256": None}
@@ -65,6 +94,8 @@ def _entries(res: FileResult, b: bytes, entries: list[tuple[int, str, int, int]]
             vals["sha256"] = sha256(b[off:off + size])
         if not name or not name.isprintable():
             issues.append("invalid_value")
+        if i in suspect and "oob_pointer" not in issues:
+            issues.append("unparsed_bytes")       # gap or overlap somewhere: this entry may be the wrong one
         res.records.append(record(i, eo, vals, verified=not issues, issues=issues))
 
 
@@ -98,7 +129,7 @@ class WadDecoder(Decoder):
             eo = do + 16 * i
             off, size, nm = struct.unpack_from("<ii8s", b, eo)
             ents.append((eo, _name(nm), off, size))
-        _entries(res, b, ents, do, do + 16 * n)
+        _entries(res, b, ents, do, do + 16 * n, complete=have == n)
         return res
 
 
@@ -132,5 +163,5 @@ class PakDecoder(Decoder):
             eo = do + 64 * i
             nm, off, size = struct.unpack_from("<56sii", b, eo)
             ents.append((eo, _name(nm), off, size))
-        _entries(res, b, ents, do, do + dl)
+        _entries(res, b, ents, do, do + dl, complete=have == n and not dl % 64)
         return res
