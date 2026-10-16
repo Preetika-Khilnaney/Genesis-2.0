@@ -1,19 +1,45 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "$comment": "PLACEHOLDER: Replace this file with the organisers' published JSON schema. See schema/README.md. The writer (src/salvage/output/writer.py::to_schema) maps to this schema.",
-  "title": "Salvage per-file output (PLACEHOLDER)",
+  "$comment": "Per-file output, from the organisers' OUTPUT-CONTRACT.md (real-samples/OUTPUT-CONTRACT.md).",
+  "title": "Salvage per-file output",
   "type": "object",
-  "required": ["source_file", "format", "records"],
+  "required": ["source_file", "format", "status", "metadata", "records", "damage"],
   "additionalProperties": true,
   "properties": {
     "source_file": {"type": "string"},
-    "format":      {"type": "string"},
-    "confidence":  {"type": "number", "minimum": 0, "maximum": 1},
-    "header":      {"type": "object"},
-    "records":     {"type": "array"},
-    "damage":      {"type": "array"},
-    "warnings":    {"type": "array", "items": {"type": "string"}},
-    "error":       {"type": ["string", "null"]},
-    "extra":       {"type": "object"}
+    "format": {"enum": ["LIBRA-98", "LABLOG", "VAULT", "WKS", "WPD", "BRAVO", "CVT", "EBCDIC-DUMP", "WAD", "PAK", "UNKNOWN"]},
+    "status": {"enum": ["ok", "partial", "unsupported", "unrecognized", "failed"]},
+    "metadata": {"type": "object"},
+    "records": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "verified": {"const": false},
+          "issues": {"type": "array", "items": {"$ref": "#/definitions/kind"}}
+        }
+      }
+    },
+    "damage": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["kind", "offset", "detail", "lossy"],
+        "properties": {
+          "kind": {"$ref": "#/definitions/kind"},
+          "offset": {"type": "integer", "minimum": 0},
+          "length": {"type": "integer", "minimum": 0},
+          "detail": {"type": "string"},
+          "lossy": {"type": "boolean"}
+        }
+      }
+    },
+    "warnings": {"type": "array", "items": {"type": "string"}},
+    "error": {"type": "string"}
+  },
+  "definitions": {
+    "kind": {"enum": ["truncated", "crc_mismatch", "checksum_mismatch", "bad_length", "unparsed_bytes",
+                      "count_mismatch", "invalid_value", "oob_pointer", "index_missing", "header_checksum",
+                      "encrypted", "unknown_record"]}
   }
 }

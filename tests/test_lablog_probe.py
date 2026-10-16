@@ -1,6 +1,6 @@
 """tools/lablog_probe.py finds marker, length field and checksum of a block format from bytes alone.
 
-The synthetic format here is deliberately NOT LABLOG (other magic, marker, field order,
+The made-up format here is deliberately NOT LABLOG (other magic, marker, field order,
 endianness and checksum coverage), so the probe cannot pass by knowing the samples.
 """
 import importlib.util

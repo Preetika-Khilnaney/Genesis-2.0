@@ -1,7 +1,7 @@
 """./salvage <input_dir> <output_dir>   OWNER: Preetika (core).
 
-Walks input_dir, identifies each file, decodes it, and writes one JSON per input
-plus report.json. Every file is isolated in try/except: one bad file never stops
+Reads every file directly in input_dir (sub-directories are skipped), identifies each
+file, decodes it, and writes one JSON per input plus report.json (OUTPUT-CONTRACT.md). Every file is isolated in try/except: one bad file never stops
 the run, and the process ALWAYS exits 0.
 """
 from __future__ import annotations
@@ -66,7 +66,9 @@ def annotate_identification(res: FileResult, s: Scanned) -> None:
                   "because its structure explains the whole file")
         res.warnings.insert(0, detail)
     if bad:
-        res.damage.insert(0, DamageEntry(min(bad), max(bad) + 1, DamageCause.BAD_MAGIC, detail, ["magic"]))
+        res.damage.insert(0, DamageEntry(min(bad), max(bad) + 1, DamageCause.BAD_MAGIC, detail, ["magic"],
+                                         lossy=False))
+        res.metadata.setdefault("identified_by", s.method)
     # Any header field covering a damaged byte cannot be verified.
     for f in res.header.values():
         if f.offset is not None and f.length and any(f.offset <= o < f.offset + f.length for o in bad):
@@ -100,6 +102,9 @@ def decode_one(s: Scanned, ctx: DecodeContext | None) -> FileResult:
         return res
     try:
         result = s.decoder.decode(s.rel, s.data, ctx)
+        for d in result.damage:            # damage offsets always point inside the file
+            d.start = max(0, min(d.start, len(s.data)))
+            d.end = max(d.start, min(d.end, len(s.data)))
         result.confidence = s.confidence
         result.input_sha256 = file_sha256
         annotate_identification(result, s)
@@ -129,7 +134,8 @@ def run(input_dir: str, output_dir: str) -> int:
         return 0
 
     # Pass 1: fingerprint everything, then group files by detected format.
-    scanned = [scan(p, root) for p in sorted(p for p in root.rglob("*") if p.is_file())]
+    # The contract: every FILE directly in input_dir; sub-directories are skipped (non-recursive).
+    scanned = [scan(p, root) for p in sorted((p for p in root.iterdir() if p.is_file()), key=lambda p: p.name)]
     groups = group_by_format(scanned)
 
     # Pass 2: decode each file with the other files of its format as context.

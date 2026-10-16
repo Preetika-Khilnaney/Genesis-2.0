@@ -1,60 +1,26 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
+  "$comment": "report.json, from the organisers' OUTPUT-CONTRACT.md.",
   "title": "Salvage report.json",
   "type": "object",
-  "required": ["files_processed", "files"],
+  "required": ["tool_version", "files", "totals"],
   "properties": {
-    "tool_version":        {"type": "string"},
-    "files_processed":    {"type": "integer", "minimum": 0},
-    "formats":            {"type": "array", "items": {"type": "string"}},
-    "unknown_files":      {"type": "integer", "minimum": 0},
-    "files_with_damage":  {"type": "integer", "minimum": 0},
-    "summary": {
-      "type": "object",
-      "properties": {
-        "ok":      {"type": "integer", "minimum": 0},
-        "partial": {"type": "integer", "minimum": 0},
-        "unknown": {"type": "integer", "minimum": 0},
-        "failed":  {"type": "integer", "minimum": 0}
-      }
-    },
-    "field_status_totals":{"type": "object"},
-    "fatal":              {"type": ["string", "null"]},
-    "files":              {
+    "tool_version": {"type": "string"},
+    "files": {
       "type": "array",
       "items": {
         "type": "object",
-        "required": ["source_file", "format", "records"],
+        "required": ["file", "format", "status", "records", "damage"],
         "properties": {
-          "source_file":   {"type": "string"},
-          "input_sha256":  {"type": ["string", "null"]},
-          "format":        {"type": "string"},
-          "confidence":    {"type": "number"},
-          "records":       {"type": "integer", "minimum": 0},
-          "field_status":  {"type": "object"},
-          "damage": {
-            "type": "array",
-            "items": {
-              "type": "object",
-              "required": ["start", "end", "cause"],
-              "properties": {
-                "start":    {"type": "integer", "minimum": 0},
-                "end":      {"type": "integer", "minimum": 0},
-                "cause":    {
-                  "type": "string",
-                  "enum": ["truncated", "crc_fail", "bad_offset", "bad_length",
-                           "bad_key", "index_overlap", "unknown",
-                           "truncation", "CRC fail", "bad offset", "bad key"]
-                },
-                "detail":   {"type": "string"},
-                "affected": {"type": "array", "items": {"type": "string"}}
-              }
-            }
-          },
-          "warnings":      {"type": "array", "items": {"type": "string"}},
-          "error":         {"type": ["string", "null"]}
+          "file": {"type": "string"},
+          "format": {"type": "string"},
+          "status": {"enum": ["ok", "partial", "unsupported", "unrecognized", "failed"]},
+          "records": {"type": "integer", "minimum": 0},
+          "damage": {"type": "integer", "minimum": 0}
         }
       }
-    }
+    },
+    "totals": {"type": "object", "additionalProperties": {"type": "integer", "minimum": 0}},
+    "fatal": {"type": "string"}
   }
 }
