@@ -50,6 +50,19 @@ so all four of us can work in parallel from H0.
 - `core/simple.py`: `decode_simple()` for header + repeated-record formats
 - `core/blocks.py`: `read_blocks()` for marker / length / payload / checksum formats (CRC gate,
   single-bit fix, resync, truncation, damage entries all handled)
+- `core/index.py`: `read_index()` for index-table formats (VAULT, game archives): blobs past the
+  end, offsets into the header, overlaps and gaps all reported; `index_structure_score()` for the
+  damaged-header fallback
+
+## Tools
+
+- `tools/survey.py <folder>`: compares all samples of one format and prints only what holds in
+  every file: magic, constant bytes, size fields, `header + N x record` layouts, record columns
+  (ids, text, dates) and a draft `FormatSpec`. Add `--log --by <name>` to write its findings to
+  FIELD-LOG. Start every new format with it.
+- `tools/hexview.py <file>`: hex + ASCII view with offsets
+- `tools/corrupt.py <file> --out <dir>`: damaged copies + `manifest.json`
+- `tools/log.py`: add a FIELD-LOG row
 
 ## Rules every module follows
 
