@@ -28,6 +28,12 @@ Code against these and you never wait on anyone.
    block or index formats so damaged-header files of your format are still recognised.
 4. Add a test, run `make test`, run `./salvage samples out`, run `make spec`.
 
+## Shared helpers in core/
+
+- `core/simple.py`: `decode_simple()` for header + repeated-record formats
+- `core/blocks.py`: `read_blocks()` for marker / length / payload / checksum formats (CRC gate,
+  single-bit fix, resync, truncation, damage entries all handled)
+
 ## Rules every module follows
 
 - **Never invent data.** Unproven = `unverified`. Unreadable = `lost` with value `None`.

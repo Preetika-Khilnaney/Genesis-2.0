@@ -5,9 +5,11 @@ Needs: checksum checks per block and a damage report for bad blocks.
 Plan:
  1. Find the block layout (marker, length, payload, checksum) from the samples.
  2. recovery.crc.guess_algorithm(...) on clean blocks -> pick the checksum.
- 3. For each block: CRC ok -> fields VERIFIED; single_bit_fix -> CORRECTED (note the bit);
-    else -> DamageEntry(CRC_FAIL) + recovery.resync to the next valid marker.
- 4. Truncated last block -> DamageEntry(TRUNCATED).
+ 3. Describe it as a core.blocks.BlockLayout and call core.blocks.read_blocks(data, layout, start).
+    It already does the CRC gate, provable single-bit CORRECTED fixes, LOST blocks with exact
+    byte ranges, resync on the next valid marker, and truncation. You decode each b.payload.
+ 4. Override structure_score() with core.blocks.block_structure_score(data, layout, start)
+    so LABLOG files with a damaged header are still recognised.
 """
 from __future__ import annotations
 
