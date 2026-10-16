@@ -11,7 +11,7 @@ The field list below is a PLACEHOLDER showing the syntax - replace it from the s
 from __future__ import annotations
 
 from ..core.model import FieldStatus, FileResult
-from ..core.registry import Decoder, register
+from ..core.registry import DecodeContext, Decoder, register
 from ..core.simple import decode_simple
 from ..core.spec import FieldSpec, FormatSpec
 
@@ -39,8 +39,12 @@ class Libra98Decoder(Decoder):
     spec = LIBRA98_SPEC
     ready = False  # TODO: True once the spec is filled and tests pass
 
-    def decode(self, path: str, data: bytes) -> FileResult:
+    def decode(self, path: str, data: bytes, ctx: DecodeContext | None = None) -> FileResult:
         res = decode_simple(self.spec, path, data)
+        # ctx.samples(data) = this file + every other LIBRA-98 file in the run. Use it for
+        # cross-sample evidence, e.g.:
+        #   samples = ctx.samples(data) if ctx else [data]
+        #   v = checker.evaluate("libra98", "u16@7 is record count", samples, test)
         # Upgrade fields to VERIFIED only with evidence (round-trip + evidence check).
         for rec in res.records:
             for f in rec.fields.values():

@@ -12,7 +12,7 @@ Plan:
 from __future__ import annotations
 
 from ..core.model import FileResult
-from ..core.registry import Decoder, register
+from ..core.registry import DecodeContext, Decoder, register
 from ..core.spec import FormatSpec
 
 LABLOG_SPEC = FormatSpec(
@@ -31,5 +31,5 @@ class LablogDecoder(Decoder):
     spec = LABLOG_SPEC
     ready = False
 
-    def decode(self, path: str, data: bytes) -> FileResult:
+    def decode(self, path: str, data: bytes, ctx: DecodeContext | None = None) -> FileResult:
         raise NotImplementedError("TODO(Khushi): block loop with CRC gate + resync")
