@@ -1,0 +1,31 @@
+{
+  "format": "pak (Quake PACK archive, real public format)",
+  "layout": "'PACK', i32 dir_offset, i32 dir_length; directory at the END: 64-byte entries of name[56] NUL-padded, i32 offset, i32 size",
+  "entries": [
+    {
+      "name": "maps/start.bsp",
+      "offset": 12,
+      "size": 92
+    },
+    {
+      "name": "sound/ambience.wav",
+      "offset": 104,
+      "size": 203
+    },
+    {
+      "name": "progs/player.mdl",
+      "offset": 307,
+      "size": 140
+    },
+    {
+      "name": "sound/door.wav",
+      "offset": 447,
+      "size": 70
+    },
+    {
+      "name": "scripts/autoexec.cfg",
+      "offset": 517,
+      "size": 52
+    }
+  ]
+}

@@ -1,0 +1,41 @@
+{
+  "format": "lablog (STAND-IN: invented layout, not the real format)",
+  "header": {
+    "instrument": 43
+  },
+  "block_layout": "marker A5 5A, u16 seq, u16 length, payload, u32 crc32(payload)",
+  "records": [
+    {
+      "seq": 0,
+      "payload": "t=55;temp=25.1;ph=7.29"
+    },
+    {
+      "seq": 1,
+      "payload": "t=99;temp=18.2;ph=6.78"
+    },
+    {
+      "seq": 2,
+      "payload": "t=159;temp=21.3;ph=7.46"
+    },
+    {
+      "seq": 3,
+      "payload": "t=197;temp=25.6;ph=7.09"
+    },
+    {
+      "seq": 4,
+      "payload": "t=280;temp=19.4;ph=6.54"
+    },
+    {
+      "seq": 5,
+      "payload": "t=365;temp=25.7;ph=7.01"
+    },
+    {
+      "seq": 6,
+      "payload": "t=411;temp=20.7;ph=7.02"
+    },
+    {
+      "seq": 7,
+      "payload": "t=488;temp=20.5;ph=7.16"
+    }
+  ]
+}
