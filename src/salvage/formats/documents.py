@@ -98,7 +98,8 @@ class WpdDecoder(Decoder):
             else:
                 text_end = off
                 if off + ln > len(b):
-                    damage(res, D.TRUNCATED, off, len(b), "document summary cut off", lossy=False)
+                    damage(res, D.TRUNCATED, off, len(b), "document summary cut off: the file ends after the "
+                           "text, so the summary (and anything after it) is lost")
                 else:
                     pk = b[off + 2:off + ln].split(b"\0")
                     meta["summary"] = [s.decode("cp437", "replace") for s in pk if s]
@@ -188,7 +189,8 @@ class BravoDecoder(Decoder):
         z = b.find(b"\x1a")
         if z < 0:
             z = len(b)
-            res.warnings.append("no ^Z terminator: no format runs")
+            damage(res, D.TRUNCATED, len(b), len(b), "no ^Z terminator: the file ends inside the text; "
+                   "the format runs are lost")
         text = b[:z].decode("latin-1")
         paras = text.split("\r")
         tail_unterminated = paras[-1] if paras else ""
@@ -199,7 +201,7 @@ class BravoDecoder(Decoder):
             res.records.append(record(len(paras), None, {"index": len(paras), "text": tail_unterminated},
                                       verified=False, issues=["truncated"]))
             damage(res, D.TRUNCATED, len(text) - len(tail_unterminated), len(text),
-                   "last paragraph is not CR-terminated", lossy=False)
+                   "last paragraph is not CR-terminated: the text is cut off")
         runs: list[dict] = []
         res.metadata = {"text_length": z, "paragraphs": len(res.records), "format_runs": runs}
         if z >= len(b):
@@ -208,8 +210,8 @@ class BravoDecoder(Decoder):
         if p % 2:
             p += 1                              # runs start at an even offset
         if p + 2 > len(b):
-            if p < len(b) or z + 1 < len(b):
-                damage(res, D.TRUNCATED, z + 1, len(b), "format run table header cut off")
+            damage(res, D.TRUNCATED, z + 1, len(b), "file ends after ^Z: the format run table is missing "
+                   "or cut off")
             return res
         words = struct.unpack_from(">H", b, p)[0]
         want, have = words * 2, len(b) - p - 2
