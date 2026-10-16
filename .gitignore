@@ -8,3 +8,6 @@ out/
 samples/**
 !samples/README.md
 tests/fixtures/damaged/
+
+# Personal study notes, kept local
+notes/
