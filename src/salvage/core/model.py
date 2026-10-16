@@ -25,6 +25,7 @@ class DamageCause(str, Enum):
     BAD_LENGTH = "bad_length"
     BAD_KEY = "bad_key"
     INDEX_OVERLAP = "index_overlap"
+    BAD_MAGIC = "bad_magic"
     UNKNOWN = "unknown"
 
 

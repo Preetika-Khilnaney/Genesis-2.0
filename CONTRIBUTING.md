@@ -23,6 +23,9 @@ Code against these and you never wait on anyone.
 2. Implement `decode(path, data, ctx)` (header + records formats can just call `core.simple.decode_simple`).
    `ctx.samples(data)` gives this file plus every other file of the same format, for the evidence check.
 3. Set `ready = True`. Until then the fingerprinter ignores it.
+   Files with a damaged magic are still matched: 1–2 wrong magic bytes (`near_magic`), or a header
+   whose record count explains the file exactly (`structure_score`). Override `structure_score()` for
+   block or index formats so damaged-header files of your format are still recognised.
 4. Add a test, run `make test`, run `./salvage samples out`, run `make spec`.
 
 ## Rules every module follows
