@@ -18,6 +18,7 @@ from __future__ import annotations
 import argparse
 import json
 import math
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -82,13 +83,16 @@ def main(argv: list[str] | None = None) -> int:
     a = ap.parse_args(argv)
     out = a.out or ROOT / "out-real"
     if a.out is None:
-        subprocess.run([str(ROOT / "salvage"), str(a.kit / "samples"), str(out)], check=False,
-                       stdout=subprocess.DEVNULL)
+        # same as ./salvage, but runnable on every OS (Windows cannot execute the sh wrapper)
+        env = {**os.environ, "PYTHONPATH": os.pathsep.join(filter(None, [str(ROOT / "src"),
+                                                                         os.environ.get("PYTHONPATH")]))}
+        subprocess.run([sys.executable, "-m", "salvage", str(a.kit / "samples"), str(out)], check=False,
+                       stdout=subprocess.DEVNULL, env=env)
     bad = 0
     for e in sorted((a.kit / "expected_outputs").glob("*.json")):
-        exp = json.loads(e.read_text())
+        exp = json.loads(e.read_text(encoding="utf-8"))
         g = out / e.name
-        errs = ["no output file"] if not g.exists() else check(exp, json.loads(g.read_text()))
+        errs = ["no output file"] if not g.exists() else check(exp, json.loads(g.read_text(encoding="utf-8")))
         print(f"{'OK  ' if not errs else 'FAIL'} {e.name}")
         for x in errs[:12]:
             print(f"       {x}")
