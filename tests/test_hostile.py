@@ -48,7 +48,7 @@ def create_hostile_dir(root: Path) -> Path:
     (root / "fake_archive.zip").write_bytes(b"\x50\x4B\x05\x06" + b"\x00" * 18)
     (root / "wrong_extension.l98").write_bytes(b"RANDOM_NOISE_NOT_LIBRA" * 4)
 
-    # 5. Huge file (>2MB synthetic block)
+    # 5. Huge file (>2MB block)
     (root / "huge_file.bin").write_bytes(b"\xAA\xBB\xCC\xDD" * (512 * 1024))
 
     # 6. Unreadable file (chmod 000)

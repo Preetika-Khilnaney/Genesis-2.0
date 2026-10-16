@@ -1,30 +1,24 @@
-.PHONY: test run run-real spec samples practice rehearse docker docker-run clean vendor build gate demo help
+.PHONY: test run check false-recovery calibrate spec docker docker-run clean vendor build gate demo help
 
 # ── Dev targets ───────────────────────────────────────────────────────────────
 
 test:            ## run the full test suite (pytest + Hypothesis bounded profile)
-	PYTHONPATH=src .venv/bin/python -m pytest -q
+	PYTHONPATH=src python3 -m pytest -q
 
-run:             ## decode samples/ (our demo data) into out/
-	PYTHONPATH=src ./salvage samples out
+run:             ## decode the organisers' samples (real-samples/samples) into out-real/
+	./salvage real-samples/samples out-real
 
-run-real:        ## decode real-samples/ (the organisers' files) into out-real/
-	PYTHONPATH=src ./salvage real-samples out-real
+check:           ## run, then compare with real-samples/expected_outputs (exit 1 on any difference)
+	python3 tools/check_expected.py
+
+false-recovery:  ## flip bits in the real samples and measure wrong-but-verified records per format
+	python3 tools/false_recovery.py
+
+calibrate:       ## corruption lab: damage samples on purpose and measure risk rates
+	PYTHONPATH=src python3 -m salvage.corruption_lab.calibrate
 
 spec:            ## regenerate FORMAT-SPEC.md from the spec library
 	PYTHONPATH=src python3 -m salvage.output.formatspec > FORMAT-SPEC.md
-
-samples:         ## regenerate samples/ and sample-answers/ (same files every time)
-	python3 tools/make_samples.py
-
-practice:        ## made-up practice files (NOT the real formats) in practice/
-	python3 tools/practice.py --damaged
-
-rehearse:        ## run ./salvage on practice/ and score it against the answers
-	python3 tools/rehearse.py
-
-calibrate:       ## run corruption lab calibration and measure risk rates
-	PYTHONPATH=src python3 -m salvage.corruption_lab.calibrate
 
 # ── Offline-build vendor cache ─────────────────────────────────────────────────
 
@@ -49,8 +43,8 @@ build:           ## build the image offline (vendor/wheels must exist; make vend
 docker:          ## build the image (allows network; for CI / first-time setup)
 	docker build -t salvage .
 
-IN ?= samples
-docker-run:      ## run inside Docker with networking off (make docker-run IN=real-samples)
+IN ?= real-samples/samples
+docker-run:      ## run inside Docker with networking off (make docker-run IN=<folder>)
 	mkdir -p out && docker run --rm --network none -v "$(PWD)/$(IN):/in:ro" -v "$(PWD)/out:/out" salvage /in /out
 
 # ── Gate check ────────────────────────────────────────────────────────────────
@@ -66,7 +60,7 @@ demo:            ## run the 3-4 minute scripted demo
 # ── Housekeeping ───────────────────────────────────────────────────────────────
 
 clean:
-	rm -rf out out-real practice .pytest_cache **/__pycache__ .hypothesis demo_out
+	rm -rf out out-real .pytest_cache **/__pycache__ .hypothesis demo_out
 
 # ── Help ──────────────────────────────────────────────────────────────────────
 
