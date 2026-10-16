@@ -6,7 +6,13 @@ requires-python = ">=3.11"
 dependencies = []   # runtime is standard library only (keeps the Docker build offline)
 
 [project.optional-dependencies]
-dev = ["pytest>=8"]
+dev = ["pytest>=8", "hypothesis>=6", "jsonschema>=4", "jinja2>=3"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+
+[tool.hypothesis]
+# Fixed-seed, bounded profile for `make test` — fast and deterministic.
+# Use @settings(max_examples=500) on any test that needs deeper exploration.
+database = ".hypothesis"
+
