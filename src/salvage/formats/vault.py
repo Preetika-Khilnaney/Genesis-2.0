@@ -34,6 +34,7 @@ from ..core.reader import ByteReader, OutOfBounds
 from ..core.registry import DecodeContext, Decoder, register
 from ..core.spec import FieldSpec, FormatSpec, decode_fields
 from ..recovery import rle, xor
+from ..recovery.index_damage import anchor_empty_ranges
 
 MAGIC = b"VALT"
 HEADER_SIZE = 6
@@ -143,7 +144,7 @@ class VaultDecoder(Decoder):
         else:
             cnt.note = "the entries do not tile the file exactly (damage or gaps)"
 
-        res.damage += scan.damage
+        res.damage += anchor_empty_ranges(scan.damage, HEADER_SIZE, 24)
         res.warnings += scan.warnings
         res.warnings += [f"gap {a}..{b} not covered by any entry" for a, b in scan.gaps]
         if variant is None:
