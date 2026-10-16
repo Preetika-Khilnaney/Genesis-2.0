@@ -1,0 +1,70 @@
+[
+  {
+    "file": "libra98_0.damaged-trunc90.l98",
+    "source": "libra98_0.l98",
+    "type": "truncate",
+    "keep": 126
+  },
+  {
+    "file": "libra98_0.damaged-flip0_bit603.l98",
+    "source": "libra98_0.l98",
+    "type": "bit_flip",
+    "bit": 603,
+    "byte": 75
+  },
+  {
+    "file": "libra98_0.damaged-zeroed_25_39.l98",
+    "source": "libra98_0.l98",
+    "type": "zeroed",
+    "start": 25,
+    "end": 39
+  },
+  {
+    "file": "libra98_0.damaged-inserted_68_1.l98",
+    "source": "libra98_0.l98",
+    "type": "inserted",
+    "offset": 68,
+    "count": 1
+  },
+  {
+    "file": "libra98_0.damaged-inserted_112_7.l98",
+    "source": "libra98_0.l98",
+    "type": "inserted",
+    "offset": 112,
+    "count": 7
+  },
+  {
+    "file": "libra98_1.damaged-trunc90.l98",
+    "source": "libra98_1.l98",
+    "type": "truncate",
+    "keep": 207
+  },
+  {
+    "file": "libra98_1.damaged-flip0_bit596.l98",
+    "source": "libra98_1.l98",
+    "type": "bit_flip",
+    "bit": 596,
+    "byte": 74
+  },
+  {
+    "file": "libra98_1.damaged-zeroed_66_89.l98",
+    "source": "libra98_1.l98",
+    "type": "zeroed",
+    "start": 66,
+    "end": 89
+  },
+  {
+    "file": "libra98_1.damaged-inserted_66_1.l98",
+    "source": "libra98_1.l98",
+    "type": "inserted",
+    "offset": 66,
+    "count": 1
+  },
+  {
+    "file": "libra98_1.damaged-inserted_4_11.l98",
+    "source": "libra98_1.l98",
+    "type": "inserted",
+    "offset": 4,
+    "count": 11
+  }
+]

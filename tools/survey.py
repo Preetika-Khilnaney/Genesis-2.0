@@ -108,34 +108,57 @@ def size_fields(blobs: list[bytes]) -> list[tuple[int, str, str]]:
     return out
 
 
-def count_layouts(blobs: list[bytes]) -> list[dict]:
-    """Integers N where header + N * record == len(file) for every file, with one header
-    size and one record size shared by all files. Needs two files with different N."""
+MIN_SUPPORT = 0.6   # share of files a layout must explain (the rest are reported as likely damaged)
+
+
+def majority_prefix(blobs: list[bytes], share: float = MIN_SUPPORT) -> bytes:
+    """Longest prefix whose every byte is the same in at least `share` of the files."""
+    out = bytearray()
+    for i in range(max(len(b) for b in blobs)):
+        vals = [b[i] for b in blobs if len(b) > i]
+        top = max(set(vals), key=vals.count)
+        if vals.count(top) < share * len(blobs):
+            break
+        out.append(top)
+    return bytes(out)
+
+
+def count_layouts(blobs: list[bytes], min_support: float = MIN_SUPPORT) -> list[dict]:
+    """Integers N where header + N * record == len(file), with one header size and one record
+    size shared by the files. A layout must explain at least min_support of the files (and at
+    least 2 with different N); files it does not explain are listed as likely damaged."""
     found = []
+    need = max(2, -(-int(min_support * 100) * len(blobs) // 100))
     for off in range(HEADER_SCAN):
         for size in SIZES:
             for end, e in ENDIANS:
                 if size == 1 and end == "be":
                     continue
                 vals = [uint(b, off, size, e) for b in blobs]
-                if None in vals or len(set(vals)) < 2:
+                points = sorted({(v, len(b)) for v, b in zip(vals, blobs) if v is not None})
+                if len({v for v, _ in points}) < 2:
                     continue
-                pairs = list(zip(vals, blobs))
-                v1, b1 = pairs[0]
-                v2, b2 = next(p for p in pairs if p[0] != v1)
-                diff = len(b1) - len(b2)
-                if diff % (v1 - v2):
-                    continue
-                rec = diff // (v1 - v2)
-                hdr = len(b1) - v1 * rec
-                if rec <= 0 or hdr < off + size:
-                    continue
-                if all(hdr + v * rec == len(b) for v, b in zip(vals, blobs)):
-                    found.append({"offset": off, "type": type_name(size, end), "header": hdr,
-                                  "record": rec, "endian": "little" if end == "le" else "big",
-                                  "counts": vals})
-    # prefer wider fields, then little-endian, then earlier offsets
-    found.sort(key=lambda f: (-_bits(f["type"]), f["endian"] != "little", f["offset"]))
+                proposals = set()
+                for i, (v1, n1) in enumerate(points):
+                    for v2, n2 in points[i + 1:]:
+                        if v1 == v2 or (n1 - n2) % (v1 - v2):
+                            continue
+                        rec = (n1 - n2) // (v1 - v2)
+                        hdr = n1 - v1 * rec
+                        if rec > 0 and hdr >= off + size:
+                            proposals.add((hdr, rec))
+                best = None
+                for hdr, rec in proposals:
+                    fit = [i for i, (v, b) in enumerate(zip(vals, blobs)) if v is not None and hdr + v * rec == len(b)]
+                    if len({vals[i] for i in fit}) >= 2 and (best is None or len(fit) > len(best[2])):
+                        best = (hdr, rec, fit)
+                if best and len(best[2]) >= need:
+                    hdr, rec, fit = best
+                    found.append({"offset": off, "type": type_name(size, end), "header": hdr, "record": rec,
+                                  "endian": "little" if end == "le" else "big",
+                                  "counts": [vals[i] for i in fit], "fit": fit})
+    # most files explained first, then wider fields, little-endian, earlier offsets
+    found.sort(key=lambda f: (-len(f["fit"]), -_bits(f["type"]), f["endian"] != "little", f["offset"]))
     return found
 
 
@@ -146,15 +169,30 @@ def printable(bs: bytes) -> bool:
     return bool(core) and all(32 <= c < 127 for c in core)
 
 
+REC_SHARE = 0.9   # a column property must hold in this share of records (damaged ones may not)
+
+
+def _share(flags) -> float:
+    flags = list(flags)
+    return sum(flags) / len(flags) if flags else 0.0
+
+
+def _pct(x: float) -> str:
+    return "every" if x == 1 else f"{x:.0%} of"
+
+
 def record_columns(blobs: list[bytes], hdr: int, rec: int, e: str) -> list[str]:
+    """Column facts that hold in most records (REC_SHARE) or most files (MIN_SUPPORT), so a
+    damaged file in the set cannot hide them. The share is printed with each fact."""
     records = [b[hdr + i * rec: hdr + (i + 1) * rec] for b in blobs for i in range((len(b) - hdr) // rec)]
     if not records:
         return ["(no records)"]
     lines, off = [], 0
+    textish = [_share(32 <= r[j] < 127 or r[j] == 0 for r in records) for j in range(rec)]
     while off < rec:
-        # text run: printable or NUL padding in every record, non-empty in some
+        # text run: printable or NUL padding in most records, real text in some
         j = off
-        while j < rec and all(32 <= r[j] < 127 or r[j] == 0 for r in records):
+        while j < rec and textish[j] >= REC_SHARE:
             j += 1
         if j - off >= 4 and any(printable(r[off:j]) for r in records):
             sample = next(r[off:j] for r in records if printable(r[off:j])).rstrip(b"\x00 ")
@@ -169,37 +207,56 @@ def record_columns(blobs: list[bytes], hdr: int, rec: int, e: str) -> list[str]:
             t = f"u{size * 8}"
             per_file = [[struct.unpack(e + CODES[size], b[hdr + i * rec + off: hdr + i * rec + off + size])[0]
                          for i in range((len(b) - hdr) // rec)] for b in blobs]
-            if all(len(p) > 1 and all(y - x == 1 for x, y in zip(p, p[1:])) for p in per_file if len(p) > 1) \
-                    and any(len(p) > 1 for p in per_file):
-                lines.append(f"  +{off:<4} {t:<4} counts up by 1 in every file (id / sequence), starts at "
-                             f"{sorted({p[0] for p in per_file if p})}")
+            multi = [p for p in per_file if len(p) > 1]
+            seq = _share(all(y - x == 1 for x, y in zip(p, p[1:])) for p in multi)
+            if multi and seq >= MIN_SUPPORT:
+                starts = sorted({p[0] for p in multi if all(y - x == 1 for x, y in zip(p, p[1:]))})
+                lines.append(f"  +{off:<4} {t:<4} counts up by 1 in {_pct(seq)} files (id / sequence), starts at {starts}")
                 off += size
                 done = True
                 break
-            if size == 4 and len(set(vals)) > 1 and all(_unix_ok(v) for v in vals):
-                lines.append(f"  +{off:<4} u32  plausible unix time in every record "
-                             f"({_unix_str(min(vals))} .. {_unix_str(max(vals))})")
+            unix = _share(_unix_ok(v) for v in vals)
+            if size == 4 and len(set(vals)) > 1 and unix >= REC_SHARE:
+                ok = [v for v in vals if _unix_ok(v)]
+                lines.append(f"  +{off:<4} u32  plausible unix time in {_pct(unix)} records "
+                             f"({_unix_str(min(ok))} .. {_unix_str(max(ok))})")
                 off += size
                 done = True
                 break
-            if size == 2 and len(set(vals)) > 1 and all(_dos_ok(v) for v in vals):
-                lines.append(f"  +{off:<4} u16  plausible DOS date in every record")
+            dos = _share(_dos_ok(v) for v in vals)
+            years = sorted(v >> 9 for v in vals)
+            # two small bytes (e.g. a grade and a flag) also "decode" as dates in 1980-81:
+            # real date columns are rarely stuck at the very start of the DOS epoch
+            if size == 2 and len(set(vals)) > 1 and dos >= REC_SHARE and years[len(years) // 2] >= 2:
+                lines.append(f"  +{off:<4} u16  plausible DOS date in {_pct(dos)} records")
                 off += size
                 done = True
                 break
         if done:
             continue
-        vals1 = {r[off] for r in records}
-        if len(vals1) == 1:
+        col = [r[off] for r in records]
+        if _mode_share(records, off) >= REC_SHARE:
             j = off
-            while j < rec and len({r[j] for r in records}) == 1:
+            while j < rec and _mode_share(records, j) >= REC_SHARE:
                 j += 1
-            lines.append(f"  +{off:<4} -    {j - off} constant byte(s) {records[0][off:j].hex()}")
+            const = bytes(_mode(records, k) for k in range(off, j))
+            lines.append(f"  +{off:<4} -    {j - off} (nearly) constant byte(s) {const.hex()}")
             off = j
             continue
+        vals1 = set(col)
         lines.append(f"  +{off:<4} u8   varies ({len(vals1)} distinct values, {min(vals1)}..{max(vals1)})")
         off += 1
     return lines
+
+
+def _mode(records: list[bytes], j: int) -> int:
+    col = [r[j] for r in records]
+    return max(set(col), key=col.count)
+
+
+def _mode_share(records: list[bytes], j: int) -> float:
+    col = [r[j] for r in records]
+    return col.count(_mode(records, j)) / len(col)
 
 
 def _unix_ok(v: int) -> bool:
@@ -247,17 +304,39 @@ def survey(paths: list[Path], name: str, log: bool, by: str) -> int:
     hyps: list[tuple[str, str, str]] = []   # (hypothesis, evidence, outcome)
     n = len(blobs)
 
+    # Sample packs include damaged files. Find what MOST files agree on, then study only the
+    # files that fit it, and list the rest as likely damaged.
+    rough = majority_prefix(blobs)
+    layouts = [f for f in count_layouts(blobs) if f["offset"] >= len(rough)]
+    best = layouts[0] if layouts else None
+    if best:
+        core = best["fit"]
+    else:
+        core = [i for i, b in enumerate(blobs) if b.startswith(rough)] if rough else list(range(n))
+    outliers = [items[i][0] for i in range(n) if i not in core]
+    names = [items[i][0] for i in core]
+    blobs = [blobs[i] for i in core]
+    n_all, n = n, len(blobs)
+    if outliers:
+        print(f"Using the {n} files that agree; {len(outliers)} look damaged and are left out of the analysis:")
+        for o in outliers[:12]:
+            print(f"   {o}")
+        if len(outliers) > 12:
+            print(f"   ... and {len(outliers) - 12} more")
+        print()
+
     magic = common_prefix(blobs)
     print("1. MAGIC")
     if magic:
-        print(f"  {magic.hex(' ')}   {magic.decode('latin-1')!r}   ({len(magic)} bytes, same in all {n} files)")
-        hyps.append((f"magic is {magic!r} at offset 0", f"identical in all {n} samples", "accepted"))
+        print(f"  {magic.hex(' ')}   {magic.decode('latin-1')!r}   ({len(magic)} bytes, same in all {n} agreeing files)")
+        hyps.append((f"magic is {magic!r} at offset 0", f"identical in {n}/{n_all} samples", "accepted"))
     else:
         print("  none: the first byte already differs")
 
-    # a count can't sit inside the magic: those bytes never change
-    layouts = [f for f in count_layouts(blobs) if f["offset"] >= len(magic)]
-    best = layouts[0] if layouts else None
+    if best:
+        # recompute on the agreeing files only (offsets and counts are unchanged)
+        best = dict(best, counts=[uint(b, best["offset"], _bits(best["type"]) // 8,
+                                       "<" if best["endian"] == "little" else ">") for b in blobs])
     hdr_end = best["header"] if best else HEADER_SCAN
     used = set(range(len(magic)))
     if best:
@@ -278,16 +357,17 @@ def survey(paths: list[Path], name: str, log: bool, by: str) -> int:
     if not sizes:
         print("  none")
 
-    print("\n4. HEADER + N x RECORD LAYOUTS")
+    print("\n4. HEADER + N x RECORD LAYOUTS (files explained / all files)")
     for f in layouts[:8]:
         print(f"  count {f['type']:<6} at {f['offset']:<4} header {f['header']:<5} record {f['record']:<5} "
-              f"counts {f['counts'][:6]}{' ...' if n > 6 else ''}")
+              f"explains {len(f['fit'])}/{n_all}   counts {f['counts'][:6]}{' ...' if len(f['counts']) > 6 else ''}")
     if not layouts:
         print("  none fit every file (block or index format? try core.blocks / an index table)")
     if best:
         hyps.append((f"{best['type']} at offset {best['offset']} is the record count; header {best['header']} bytes, "
                      f"record {best['record']} bytes",
-                     f"header + count*record == file size in {n}/{n} samples", "accepted"))
+                     f"header + count*record == file size in {len(best['fit']) if 'fit' in best else n}/{n_all} samples; "
+                     f"the others look damaged", "accepted"))
         if len(layouts) > 1:
             print("  several fit: the first is a guess; the others are listed so you can rule them out")
 

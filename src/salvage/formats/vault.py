@@ -3,7 +3,7 @@
 Needs: index table, run-length-compressed blobs, XOR-obfuscated strings.
 
 Plan:
- 1. `python3 tools/survey.py samples/vault/` for the magic, entry count and constants.
+ 1. `python3 tools/survey.py real-samples/vault/` (samples/vault/ until then) for the magic, entry count and constants.
  2. Describe one index entry as FieldSpecs and call core.index.read_index(data, start, count, entry).
     It already reports blobs past the end (TRUNCATED / BAD_OFFSET), offsets into the header,
     overlaps (INDEX_OVERLAP) and gaps. Use e.blob for each good entry.

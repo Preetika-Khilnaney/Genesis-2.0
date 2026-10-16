@@ -8,7 +8,7 @@ An offline tool that uses neuro-symbolic inference to decode undocumented legacy
 
 ```sh
 make docker                         # build the image (offline once python:3.12-slim is present)
-make docker-run                     # samples/ -> out/, networking off
+make docker-run                     # samples/ -> out/, networking off (IN=real-samples for theirs)
 ```
 
 Without Docker:

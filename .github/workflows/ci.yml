@@ -10,11 +10,11 @@ jobs:
           python-version: "3.12"
       - run: pip install -r requirements-dev.txt
       - run: python -m pytest -q
-      - name: CLI smoke test (empty input, must exit 0)
-        run: mkdir -p /tmp/in && ./salvage /tmp/in /tmp/out && test -f /tmp/out/report.json
+      - name: CLI smoke test (samples and an empty folder, must exit 0)
+        run: ./salvage samples /tmp/out && test -f /tmp/out/report.json && mkdir -p /tmp/empty && ./salvage /tmp/empty /tmp/out2 && test -f /tmp/out2/report.json
   docker:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - run: docker build -t salvage .
-      - run: mkdir -p /tmp/in && docker run --rm --network none -v /tmp/in:/in:ro -v /tmp/out:/out salvage /in /out && test -f /tmp/out/report.json
+      - run: docker run --rm --network none -v "$PWD/samples:/in:ro" -v /tmp/out:/out salvage /in /out && test -f /tmp/out/report.json

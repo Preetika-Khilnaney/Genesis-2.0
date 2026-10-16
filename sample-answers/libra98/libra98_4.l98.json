@@ -1,0 +1,32 @@
+{
+  "format": "libra98 (STAND-IN: invented layout, not the real format)",
+  "header": {
+    "version": 1,
+    "record_count": 3,
+    "created_unix": 889488000,
+    "decoy_u16_at_15": 97
+  },
+  "records": [
+    {
+      "id": 1000,
+      "name": "NEHA JOSHI",
+      "enrolled": "1997-06-22",
+      "grade": 73,
+      "flags": 1
+    },
+    {
+      "id": 1001,
+      "name": "ARJUN MEHTA",
+      "enrolled": "1991-08-15",
+      "grade": 56,
+      "flags": 0
+    },
+    {
+      "id": 1002,
+      "name": "KIRAN DAS",
+      "enrolled": "1993-07-20",
+      "grade": 78,
+      "flags": 1
+    }
+  ]
+}
