@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Genesis 2.0 Salvage - Offline tool for recovering records from undocumented legacy binary files.">
+  <title>Salvage · Legacy File Recovery</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+  <!-- Mock Data Ribbon (visible when in mock mode) -->
+  <div id="mockRibbon" class="mock-ribbon visible" role="status" aria-live="polite">
+    <span class="mock-badge-tag">MOCK DATA</span>
+    <span>Viewing canonical mock demonstration fixtures (Brief Page 9). Switch to Real Server when local bridge is active.</span>
+  </div>
+
+  <!-- Header Strip -->
+  <header class="header-strip">
+    <div class="brand-section">
+      <div class="brand-logo" aria-hidden="true">S</div>
+      <div class="brand-titles">
+        <h1>Genesis 2.0 · Salvage</h1>
+        <p>Offline Legacy Binary Record Recovery</p>
+      </div>
+    </div>
+
+    <div class="header-badges">
+      <div class="offline-badge" title="Verified: Zero external network requests">
+        <span class="pulse-dot" aria-hidden="true"></span>
+        <span>Runs on this computer. Your files never leave it.</span>
+      </div>
+      <div id="backendStatusIndicator" style="font-size: 12px; font-weight: 600; color: var(--text-secondary);">
+        🟡 Checking bridge...
+      </div>
+    </div>
+
+    <div class="header-actions">
+      <label for="modeSelect" class="sr-only" style="display:none;">Data Mode</label>
+      <select id="modeSelect" class="select-control" aria-label="Select Data Mode">
+        <option value="mock" selected>Interactive Mock Mode</option>
+        <option value="real">Real Server (127.0.0.1)</option>
+      </select>
+      <button id="clearSessionBtn" class="btn btn-outline-danger" title="Clear all in-memory data and wipe temporary job files">
+        🗑️ Clear session
+      </button>
+    </div>
+  </header>
+
+  <!-- Main 2-Block Layout (45% / 55% Side-by-Side) -->
+  <main class="main-layout">
+
+    <!-- Block 1: Recover your files (~45%) -->
+    <section class="block-card" id="block1" aria-labelledby="block1Heading">
+      <div class="block-header">
+        <div class="block-title-group">
+          <h2 id="block1Heading">Block 1: Recover your files</h2>
+          <p>Drop legacy files to decode structures, test checksums, and audit damage.</p>
+        </div>
+      </div>
+
+      <div class="block-body">
+        <!-- Upload Zone -->
+        <div class="upload-zone" id="uploadZone" role="button" tabindex="0" aria-label="Drop legacy files here or browse">
+          <input type="file" id="fileInput" class="file-input-hidden" multiple>
+          <div class="upload-icon" aria-hidden="true">📁</div>
+          <h3>Drag and drop legacy files here, or <button type="button" class="btn btn-secondary btn-sm" id="browseBtn">Browse Files</button></h3>
+          <p>Accepts multiple files of any extension (damaged, unknown, or truncated).</p>
+          <div class="upload-limits">
+            <span>Limits: Max 25 MB / file</span>
+            <span>·</span>
+            <span>Max 50 files / job</span>
+          </div>
+        </div>
+
+        <!-- Staged Files Action Bar -->
+        <div id="stagedFilesBar" class="staged-files-bar" style="display: none;">
+          <span id="stagedCountText">0 files staged</span>
+          <button id="recoverBtn" class="btn btn-primary">
+            <span>⚡ Recover files</span>
+          </button>
+        </div>
+
+        <!-- Global Downloads Bar -->
+        <div class="results-actions-bar" id="globalDownloadsBar" style="display: none;">
+          <div style="font-size: 13px; font-weight: 600; color: var(--text-primary);">
+            Recovered File Outputs
+          </div>
+          <div class="action-links-group">
+            <button id="downloadReportBtn" class="btn btn-secondary btn-sm">
+              📄 Download report.json
+            </button>
+            <button id="downloadZipBtn" class="btn btn-secondary btn-sm">
+              📦 Download everything (ZIP)
+            </button>
+          </div>
+        </div>
+
+        <!-- Results List -->
+        <div class="results-list" id="resultsList" aria-live="polite">
+          <!-- Dynamically populated rows -->
+        </div>
+      </div>
+    </section>
+
+    <!-- Block 2: Inside the machine (~55%) -->
+    <section class="block-card" id="block2" aria-labelledby="block2Heading">
+      <div class="block-header">
+        <div class="block-title-group">
+          <h2 id="block2Heading">Block 2: Inside the machine</h2>
+          <p>Inspecting: <strong id="selectedFileName">No file selected</strong></p>
+        </div>
+      </div>
+
+      <div class="block-body">
+        <!-- Pipeline Stepper -->
+        <div class="pipeline-stepper" id="stepperContainer" role="tablist" aria-label="Processing Steps Pipeline">
+          <!-- Dynamically populated step nodes -->
+        </div>
+
+        <!-- Stepper Controls -->
+        <div class="stepper-controls">
+          <div class="playback-buttons">
+            <button id="prevStepBtn" class="btn btn-secondary btn-sm" title="Previous step">
+              ⏮ Previous
+            </button>
+            <button id="playStepBtn" class="btn btn-primary btn-sm" title="Animate step playback">
+              ▶ Play
+            </button>
+            <button id="nextStepBtn" class="btn btn-secondary btn-sm" title="Next step">
+              ⏭ Next
+            </button>
+          </div>
+          <div class="step-counter" id="stepCounter" aria-live="polite">
+            Step 1 of 8
+          </div>
+        </div>
+
+        <!-- Step Detail Panel (4 Parts) -->
+        <div id="stepDetailContainer" class="step-detail-wrapper" aria-live="polite">
+          <!-- Dynamically populated detail card -->
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Toast Notification Container -->
+  <div id="toastContainer" class="toast-container" aria-live="polite" aria-atomic="true"></div>
+
+  <!-- Vanilla ES Module Script -->
+  <script type="module" src="app.js"></script>
+</body>
+</html>
