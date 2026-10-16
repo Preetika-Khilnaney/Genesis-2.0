@@ -57,10 +57,14 @@ if ! PYTHONPATH=src python3 -m salvage.output.schema_validate "$OUTPUT_DIR"; the
   exit 1
 fi
 
-# 5. receipts.jsonl must exist
-echo "[5/5] Checking receipts.jsonl..."
+# 5. receipts.jsonl must exist and form a valid hash chain
+echo "[5/5] Checking receipts.jsonl & hash chain..."
 if [ ! -f "$OUTPUT_DIR/receipts.jsonl" ]; then
   echo "GATE FAIL: receipts.jsonl missing"
+  exit 1
+fi
+if ! PYTHONPATH=src python3 -c "from salvage.output.receipts import verify_chain; from pathlib import Path; assert verify_chain(Path('$OUTPUT_DIR/receipts.jsonl'))"; then
+  echo "GATE FAIL: receipts.jsonl hash chain broken"
   exit 1
 fi
 echo "      OK"

@@ -23,11 +23,19 @@ practice:        ## made-up practice files (NOT the real formats) in practice/
 rehearse:        ## run ./salvage on practice/ and score it against the answers
 	python3 tools/rehearse.py
 
+calibrate:       ## run corruption lab calibration and measure risk rates
+	PYTHONPATH=src python3 -m salvage.corruption_lab.calibrate
+
 # ── Offline-build vendor cache ─────────────────────────────────────────────────
 
-vendor:          ## (online, run once) download and build pinned wheels for linux/arm64
+vendor:          ## (online, run once) download and build pinned wheels for both linux/amd64 and linux/arm64
 	mkdir -p vendor/wheels
-	docker run --rm \
+	docker run --rm --platform linux/amd64 \
+	  -v "$$(pwd)/vendor/wheels:/wheels" \
+	  -v "$$(pwd)/requirements.txt:/requirements.txt:ro" \
+	  python:3.12-slim bash -c \
+	  "apt-get update -qq && apt-get install -y -qq gcc python3-dev && pip wheel -r /requirements.txt -w /wheels"
+	docker run --rm --platform linux/arm64 \
 	  -v "$$(pwd)/vendor/wheels:/wheels" \
 	  -v "$$(pwd)/requirements.txt:/requirements.txt:ro" \
 	  python:3.12-slim bash -c \

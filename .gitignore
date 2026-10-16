@@ -16,6 +16,3 @@ practice/
 notes/
 
 .hypothesis/
-
-# Vendor wheels are large binaries; only track the directory placeholder.
-vendor/wheels/*.whl
