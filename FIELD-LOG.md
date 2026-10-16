@@ -13,3 +13,10 @@ Dated log of every hypothesis we tried, including the ones that failed. Append r
 | 2026-10-16 15:59 | libra98 | Byte 11 is a flag or type code | Alternates 80/00 with file number; meaning unknown, may be a generator artifact | open | Bhupesh |
 | 2026-10-16 15:59 | libra98 | Bytes 16-19 hold a size or count flag | Byte 16 is 1 only in the three largest files; several readings fit all 6, need a file with 16+ records to separate them | open | Bhupesh |
 | 2026-10-16 15:59 | libra98 | Record offset +24 (2 bytes) is a date or an amount | Values about 5200-9100; days since 1970, days since 1980 and a plain amount all fit every sample; organisers' spec needed | open | Bhupesh |
+| 2026-10-16 16:10 | libra98 | checker: bytes 9-10 is record count, little-endian | held on 6/6 samples | accepted | Bhupesh |
+| 2026-10-16 16:10 | libra98 | checker: bytes 9-10 is record count, big-endian | held on 0/6 samples; counterexamples: samples [0, 1, 2, 3, 4, 5] | rejected | Bhupesh |
+| 2026-10-16 16:10 | libra98 | checker: bytes 9-10 is length of rest of file | held on 0/6 samples; counterexamples: samples [0, 1, 2, 3, 4, 5] | rejected | Bhupesh |
+| 2026-10-16 16:10 | libra98 | checker: bytes 9-10 is total file size | held on 0/6 samples; counterexamples: samples [0, 1, 2, 3, 4, 5] | rejected | Bhupesh |
+| 2026-10-16 16:10 | libra98 | checker: record ID is 1000 + position (little-endian) | held on 6/6 samples | accepted | Bhupesh |
+| 2026-10-16 16:10 | libra98 | checker: record offset +24 is plausible DOS date, little-endian | held on 6/6 samples | accepted | Bhupesh |
+| 2026-10-16 16:10 | libra98 | checker: record offset +24 is plausible DOS date, big-endian | held on 0/6 samples; counterexamples: samples [0, 1, 2, 3, 4, 5] | rejected | Bhupesh |

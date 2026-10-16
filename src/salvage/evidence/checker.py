@@ -16,7 +16,7 @@ from typing import Callable
 
 from . import ledger
 
-MIN_SAMPLES = 2
+MIN_SAMPLES = 3
 
 
 @dataclass
