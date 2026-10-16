@@ -1,0 +1,4 @@
+#!/bin/sh
+# ./salvage <input_dir> <output_dir>  -- always exits 0
+HERE="$(cd "$(dirname "$0")" && pwd)"
+PYTHONPATH="$HERE/src${PYTHONPATH:+:$PYTHONPATH}" exec python3 -m salvage "$@"

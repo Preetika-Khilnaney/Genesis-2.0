@@ -1,0 +1,20 @@
+name: ci
+on: [push, pull_request]
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -r requirements-dev.txt
+      - run: python -m pytest -q
+      - name: CLI smoke test (empty input, must exit 0)
+        run: mkdir -p /tmp/in && ./salvage /tmp/in /tmp/out && test -f /tmp/out/report.json
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker build -t salvage .
+      - run: mkdir -p /tmp/in && docker run --rm --network none -v /tmp/in:/in:ro -v /tmp/out:/out salvage /in /out && test -f /tmp/out/report.json
