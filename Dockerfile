@@ -17,7 +17,14 @@ WORKDIR /app
 # Install pinned wheels from the vendor cache; no network access needed.
 COPY requirements.txt ./
 COPY vendor/wheels/ ./vendor/wheels/
-RUN pip install --no-index --find-links=vendor/wheels --no-cache-dir -r requirements.txt
+# The tool runs on the Python standard library alone (numpy/jsonschema are optional).
+# Install vendored runtime extras only if vendor/wheels has wheels; never pytest/hypothesis.
+RUN if ls vendor/wheels/*.whl >/dev/null 2>&1; then \
+        grep -vE '^(hypothesis|pytest)==' requirements.txt > /tmp/runtime.txt && \
+        pip install --no-index --find-links=vendor/wheels --no-cache-dir -r /tmp/runtime.txt; \
+    else \
+        echo "vendor/wheels is empty: standard library only"; \
+    fi
 
 # Copy source
 COPY salvage ./salvage
