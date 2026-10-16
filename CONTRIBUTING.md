@@ -13,14 +13,15 @@
 
 - `core/model.py`: `FieldStatus`, `Field`, `Record`, `DamageEntry`, `FileResult`
 - `core/spec.py`: `FieldSpec`, `FormatSpec`
-- `core/registry.py`: `Decoder` + `@register`
+- `core/registry.py`: `Decoder` + `@register` + `DecodeContext` (siblings of the same format)
 
 Code against these and you never wait on anyone.
 
 ## Adding a format
 
 1. Fill the module's `FormatSpec` (every field with `desc` and `evidence`).
-2. Implement `decode()` (header + records formats can just call `core.simple.decode_simple`).
+2. Implement `decode(path, data, ctx)` (header + records formats can just call `core.simple.decode_simple`).
+   `ctx.samples(data)` gives this file plus every other file of the same format, for the evidence check.
 3. Set `ready = True`. Until then the fingerprinter ignores it.
 4. Add a test, run `make test`, run `./salvage samples out`, run `make spec`.
 

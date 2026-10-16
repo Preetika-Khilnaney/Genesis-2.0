@@ -8,7 +8,7 @@ TODO: rename module/decoder to the chosen format.
 from __future__ import annotations
 
 from ..core.model import FileResult
-from ..core.registry import Decoder, register
+from ..core.registry import DecodeContext, Decoder, register
 from ..core.spec import FormatSpec
 
 REALWORLD_SPEC = FormatSpec(name="realworld", magic=None, description="TODO")
@@ -20,5 +20,5 @@ class RealWorldDecoder(Decoder):
     spec = REALWORLD_SPEC
     ready = False
 
-    def decode(self, path: str, data: bytes) -> FileResult:
+    def decode(self, path: str, data: bytes, ctx: DecodeContext | None = None) -> FileResult:
         raise NotImplementedError("TODO(Bhupesh): chosen real-world format")

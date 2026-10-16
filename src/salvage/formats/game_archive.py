@@ -6,7 +6,7 @@ TODO: rename this module/decoder to the actual archive format once picked.
 from __future__ import annotations
 
 from ..core.model import FileResult
-from ..core.registry import Decoder, register
+from ..core.registry import DecodeContext, Decoder, register
 from ..core.spec import FormatSpec
 
 GAME_ARCHIVE_SPEC = FormatSpec(name="game_archive", magic=None, description="TODO")
@@ -18,5 +18,5 @@ class GameArchiveDecoder(Decoder):
     spec = GAME_ARCHIVE_SPEC
     ready = False
 
-    def decode(self, path: str, data: bytes) -> FileResult:
+    def decode(self, path: str, data: bytes, ctx: DecodeContext | None = None) -> FileResult:
         raise NotImplementedError("TODO(Khushi): index + entries")
