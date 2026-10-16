@@ -1,5 +1,6 @@
 """Format decoders. Importing this package registers all of them.
 
-To add a format: create a module here with a @register'd Decoder, then import it below.
+One decoder per format in OUTPUT-CONTRACT.md; each Decoder.name is the contract format name.
+To add a format: create a module with a @register'd Decoder, then import it below.
 """
-from . import game_archive, lablog, libra98, realworld, vault  # noqa: F401
+from . import archives, cvt, documents, ebcdic, lablog, libra98, vault, wks  # noqa: F401
