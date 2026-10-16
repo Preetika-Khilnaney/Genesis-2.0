@@ -9,13 +9,12 @@ from __future__ import annotations
 import argparse
 import sys
 import traceback
+from dataclasses import dataclass, field
 from pathlib import Path
 
-from dataclasses import dataclass
-
 from . import formats  # noqa: F401  (importing registers every decoder)
-from .core.fingerprint import identify
-from .core.model import FileResult
+from .core.fingerprint import identify_detailed
+from .core.model import DamageCause, DamageEntry, FieldStatus, FileResult
 from .core.registry import DecodeContext, Decoder
 from .output import receipts, report, unknown, writer
 
@@ -31,6 +30,8 @@ class Scanned:
     decoder: Decoder | None
     confidence: float
     read_error: str | None = None
+    method: str = "none"                                    # how it was identified (see fingerprint.py)
+    damaged_magic: list[int] = field(default_factory=list)
 
 
 def scan(path: Path, root: Path) -> Scanned:
@@ -41,10 +42,35 @@ def scan(path: Path, root: Path) -> Scanned:
     except Exception as e:
         return Scanned(rel, None, None, 0.0, read_error=f"read failed: {e}")
     try:
-        decoder, conf = identify(data)
+        ident = identify_detailed(data)
     except Exception as e:
         return Scanned(rel, data, None, 0.0, read_error=f"fingerprint failed: {e}")
-    return Scanned(rel, data, decoder, conf)
+    return Scanned(rel, data, ident.decoder, ident.confidence,
+                   method=ident.method, damaged_magic=ident.damaged_magic)
+
+
+def annotate_identification(res: FileResult, s: Scanned) -> None:
+    """Record HOW a file was identified, and the damage implied by a fallback match."""
+    res.extra.setdefault("identified_by", s.method)
+    if s.method not in ("near_magic", "structure"):
+        return
+    spec = s.decoder.spec
+    if s.method == "near_magic" and s.damaged_magic:
+        bad = list(s.damaged_magic)
+        detail = (f"magic bytes damaged at offsets {bad}; identified as {s.decoder.name} "
+                  "from the rest of the signature")
+    else:
+        bad = list(range(spec.magic_offset, spec.magic_offset + len(spec.magic))) if spec and spec.magic else []
+        detail = (f"magic/header signature did not match; identified as {s.decoder.name} "
+                  "because its structure explains the whole file")
+        res.warnings.insert(0, detail)
+    if bad:
+        res.damage.insert(0, DamageEntry(min(bad), max(bad) + 1, DamageCause.BAD_MAGIC, detail, ["magic"]))
+    # Any header field covering a damaged byte cannot be verified.
+    for f in res.header.values():
+        if f.offset is not None and f.length and any(f.offset <= o < f.offset + f.length for o in bad):
+            f.status = FieldStatus.UNVERIFIED
+            f.note = "overlaps damaged magic bytes"
 
 
 def group_by_format(scanned: list[Scanned]) -> dict[str, list[Scanned]]:
@@ -72,6 +98,7 @@ def decode_one(s: Scanned, ctx: DecodeContext | None) -> FileResult:
     try:
         result = s.decoder.decode(s.rel, s.data, ctx)
         result.confidence = s.confidence
+        annotate_identification(result, s)
         if ctx is not None:
             result.extra.setdefault("samples_in_context", ctx.sample_count)
         return result
@@ -82,6 +109,7 @@ def decode_one(s: Scanned, ctx: DecodeContext | None) -> FileResult:
         res.error = f"{type(e).__name__}: {e}"
         res.warnings.append("decoder crashed; see error. Traceback tail: "
                             + traceback.format_exc().strip().splitlines()[-1])
+        annotate_identification(res, s)
         return res
 
 
