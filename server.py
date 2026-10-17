@@ -296,6 +296,12 @@ class SalvageBridgeHandler(SimpleHTTPRequestHandler):
         # Serve static frontend files by default
         super().__init__(*args, directory=str(FRONTEND_DIR), **kwargs)
 
+    def end_headers(self):
+        # Never let the browser reuse an old copy of the page: an update to the
+        # frontend shows on the next plain reload.
+        self.send_header("Cache-Control", "no-store, max-age=0")
+        super().end_headers()
+
     def do_OPTIONS(self):
         """Handle pre-flight requests."""
         self.send_response(HTTPStatus.NO_CONTENT)

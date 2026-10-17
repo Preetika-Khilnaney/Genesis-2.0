@@ -250,8 +250,7 @@ function skyline(ctx, W, H, seed = 7) {
 }
 
 function pipes(ctx, W, H) {
-  ctx.fillStyle = '#FFF8E6'; ctx.fillRect(0, 0, W, H);
-  const tube = (x, y, len, vertical, c1, c2, c3) => {
+    const tube = (x, y, len, vertical, c1, c2, c3) => {
     for (let i = 0; i < len; i++) {
       const [px, py] = vertical ? [x, y + i] : [x + i, y];
       [c1, c2, c2, c3].forEach((c, k) => {
@@ -293,8 +292,7 @@ function pipes(ctx, W, H) {
 }
 
 function stars(ctx, W, H) {        // small night-free "space" tile in light tones
-  ctx.fillStyle = '#EEF0FF'; ctx.fillRect(0, 0, W, H);
-  const R = rng(3);
+    const R = rng(3);
   for (let i = 0; i < W * H * 0.012; i++) {
     ctx.fillStyle = R() < 0.5 ? '#C6CBF5' : '#AEB6F0';
     ctx.fillRect(Math.floor(R() * W), Math.floor(R() * H), 1, 1);
