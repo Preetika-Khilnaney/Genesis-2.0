@@ -3,152 +3,213 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="description" content="Genesis 2.0 Salvage - Offline tool for recovering records from undocumented legacy binary files.">
-  <title>Salvage · Legacy File Recovery</title>
+  <meta name="description" content="Akshaya: offline recovery of records from undocumented legacy binary files.">
+  <title>Akshaya · Legacy File Recovery</title>
   <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="theme.css">
 </head>
 <body>
+<div class="page">
 
-  <!-- Mock Data Ribbon (visible when in mock mode) -->
-  <div id="mockRibbon" class="mock-ribbon visible" role="status" aria-live="polite">
-    <span class="mock-badge-tag">MOCK DATA</span>
-    <span>Viewing canonical mock demonstration fixtures (Brief Page 9). Switch to Real Server when local bridge is active.</span>
-  </div>
-
-  <!-- Header Strip -->
-  <header class="header-strip">
-    <div class="brand-section">
-      <div class="brand-logo" aria-hidden="true">S</div>
-      <div class="brand-titles">
-        <h1>Genesis 2.0 · Salvage</h1>
-        <p>Offline Legacy Binary Record Recovery</p>
-      </div>
+  <div class="frame">
+    <div id="mockRibbon" class="mock-ribbon visible" role="status" aria-live="polite">
+      <span class="mock-badge-tag">MOCK DATA</span>
+      <span>Run <code>python3 server.py</code> and choose Real server for live results.</span>
     </div>
 
-    <div class="header-badges">
-      <div class="offline-badge" title="Verified: Zero external network requests">
-        <span class="pulse-dot" aria-hidden="true"></span>
-        <span>Runs on this computer. Your files never leave it.</span>
-      </div>
-      <div id="backendStatusIndicator" style="font-size: 12px; font-weight: 600; color: var(--text-secondary);">
-        🟡 Checking bridge...
-      </div>
-    </div>
-
-    <div class="header-actions">
-      <label for="modeSelect" class="sr-only" style="display:none;">Data Mode</label>
-      <select id="modeSelect" class="select-control" aria-label="Select Data Mode">
-        <option value="mock" selected>Interactive Mock Mode</option>
-        <option value="real">Real Server (127.0.0.1)</option>
-      </select>
-      <button id="clearSessionBtn" class="btn btn-outline-danger" title="Clear all in-memory data and wipe temporary job files">
-        🗑️ Clear session
-      </button>
-    </div>
-  </header>
-
-  <!-- Main 2-Block Layout (45% / 55% Side-by-Side) -->
-  <main class="main-layout">
-
-    <!-- Block 1: Recover your files (~45%) -->
-    <section class="block-card" id="block1" aria-labelledby="block1Heading">
-      <div class="block-header">
-        <div class="block-title-group">
-          <h2 id="block1Heading">Block 1: Recover your files</h2>
-          <p>Drop legacy files to decode structures, test checksums, and audit damage.</p>
+    <header class="topbar">
+      <a class="brand" href="#top" aria-label="Akshaya home">
+        <span class="brand-mark"><canvas data-pixel="floppy" class="px brand-px" aria-hidden="true"></canvas></span>
+        <span class="brand-name">Akshaya</span>
+      </a>
+      <nav class="topnav" aria-label="Sections">
+        <a href="#recover">Recover</a>
+        <a href="#inside">Inside</a>
+        <a href="#collection">Collection</a>
+      </nav>
+      <div class="topbar-right">
+        <div class="offline-badge" title="Verified: zero external network requests">
+          <span class="pulse-dot" aria-hidden="true"></span><span>Offline</span>
         </div>
+        <div id="backendStatusIndicator" class="bridge-status">Checking bridge…</div>
+        <label for="modeSelect" class="sr-only">Data mode</label>
+        <select id="modeSelect" class="select-control" aria-label="Select data mode">
+          <option value="mock" selected>Mock data</option>
+          <option value="real">Real server</option>
+        </select>
+        <button id="clearSessionBtn" class="btn btn-outline-danger" title="Clear all in-memory data and wipe temporary job files">Clear session</button>
       </div>
+    </header>
 
-      <div class="block-body">
-        <!-- Upload Zone -->
-        <div class="upload-zone" id="uploadZone" role="button" tabindex="0" aria-label="Drop legacy files here or browse">
-          <input type="file" id="fileInput" class="file-input-hidden" multiple>
-          <div class="upload-icon" aria-hidden="true">📁</div>
-          <h3>Drag and drop legacy files here, or <button type="button" class="btn btn-secondary btn-sm" id="browseBtn">Browse Files</button></h3>
-          <p>Accepts multiple files of any extension (damaged, unknown, or truncated).</p>
-          <div class="upload-limits">
-            <span>Limits: Max 25 MB / file</span>
-            <span>·</span>
-            <span>Max 50 files / job</span>
+    <!-- Each box = one thing the system does -->
+    <section class="bento" id="top" aria-label="What it does">
+      <a class="card card-lav card-hero" href="#recover">
+        <div class="feat">
+          <span class="feat-num">01</span>
+          <h2 class="display">Identify</h2>
+          <p>Recognises each file's format from its magic bytes, even when those bytes are damaged.</p>
+        </div>
+        <span class="corner-arrow" aria-hidden="true">↗</span>
+        <canvas data-pixel="skyline" class="px fill-bottom" aria-hidden="true"></canvas>
+      </a>
+
+      <div class="stack">
+        <div class="card card-butter card-art-top">
+          <canvas data-pixel="space" class="px art" aria-hidden="true"></canvas>
+          <div class="feat feat-sm">
+            <span class="feat-num">02</span>
+            <h3>Decode</h3>
+            <p>10 legacy formats into clean JSON.</p>
           </div>
         </div>
-
-        <!-- Staged Files Action Bar -->
-        <div id="stagedFilesBar" class="staged-files-bar" style="display: none;">
-          <span id="stagedCountText">0 files staged</span>
-          <button id="recoverBtn" class="btn btn-primary">
-            <span>⚡ Recover files</span>
-          </button>
-        </div>
-
-        <!-- Global Downloads Bar -->
-        <div class="results-actions-bar" id="globalDownloadsBar" style="display: none;">
-          <div style="font-size: 13px; font-weight: 600; color: var(--text-primary);">
-            Recovered File Outputs
-          </div>
-          <div class="action-links-group">
-            <button id="downloadReportBtn" class="btn btn-secondary btn-sm">
-              📄 Download report.json
-            </button>
-            <button id="downloadZipBtn" class="btn btn-secondary btn-sm">
-              📦 Download everything (ZIP)
-            </button>
+        <div class="card card-butter card-art-top">
+          <canvas data-pixel="pipes" class="px art" aria-hidden="true"></canvas>
+          <div class="feat feat-sm">
+            <span class="feat-num">03</span>
+            <h3>Verify</h3>
+            <p>CRC-16, CRC-32, sums and formula checks.</p>
           </div>
         </div>
+      </div>
 
-        <!-- Results List -->
-        <div class="results-list" id="resultsList" aria-live="polite">
-          <!-- Dynamically populated rows -->
+      <div class="card card-peach card-damage">
+        <div class="feat">
+          <span class="feat-num">04</span>
+          <h3 class="display-md">Repair</h3>
+          <p>Fixes a single flipped bit only when the checksum proves it. Anything else is flagged, never guessed.</p>
+        </div>
+        <span class="corner-arrow" aria-hidden="true">↗</span>
+        <div class="media-row" aria-hidden="true">
+          <canvas data-pixel="floppy" class="px media"></canvas>
+          <canvas data-pixel="crt" class="px media"></canvas>
+          <canvas data-pixel="cassette" class="px media"></canvas>
+        </div>
+      </div>
+
+      <div class="stack stack-right">
+        <div class="card card-white card-text">
+          <div class="feat feat-sm">
+            <span class="feat-num">05</span>
+            <h3>Report damage</h3>
+            <p>Every problem with its kind, byte offset, length and whether data was lost.</p>
+          </div>
+        </div>
+        <div class="card card-white card-text">
+          <div class="feat feat-sm">
+            <span class="feat-num">06</span>
+            <h3>Audit</h3>
+            <p>Hash-chained receipts make every run tamper-evident.</p>
+          </div>
+        </div>
+        <div class="card card-mint card-reel">
+          <div class="feat feat-sm">
+            <span class="feat-num">07</span>
+            <h3>Never crash</h3>
+            <p>Every file gets a status. Exit code 0, always.</p>
+          </div>
+          <canvas data-pixel="reel" class="px reel" aria-hidden="true"></canvas>
         </div>
       </div>
     </section>
 
-    <!-- Block 2: Inside the machine (~55%) -->
-    <section class="block-card" id="block2" aria-labelledby="block2Heading">
+    <section class="headline-row">
+      <h2 class="headline">Bring dead files back, and say exactly what was lost.</h2>
+      <ul class="proof-strip">
+        <li><b>7 / 7</b><span>official outputs matched</span></li>
+        <li><b>39,900</b><span>damaged copies tested</span></li>
+        <li><b>0.00%</b><span>silent errors with a checksum</span></li>
+        <li><b>0.4 ms</b><span>per file</span></li>
+      </ul>
+    </section>
+  </div>
+
+  <!-- ============ The tool ============ -->
+  <main class="main-layout" id="recover">
+    <section class="block-card" id="block1" aria-labelledby="block1Heading">
       <div class="block-header">
+        <canvas data-pixel="floppy" class="px block-px" aria-hidden="true"></canvas>
         <div class="block-title-group">
-          <h2 id="block2Heading">Block 2: Inside the machine</h2>
+          <h2 id="block1Heading">Recover your files</h2>
+          <p>Decode, test checksums and map the damage.</p>
+        </div>
+      </div>
+      <div class="block-body">
+        <div class="upload-zone" id="uploadZone" role="button" tabindex="0" aria-label="Drop legacy files here or browse">
+          <input type="file" id="fileInput" class="file-input-hidden" multiple>
+          <canvas data-pixel="cassette" class="px upload-px" aria-hidden="true"></canvas>
+          <h3>Drop files here, or <button type="button" class="btn btn-secondary btn-sm" id="browseBtn">Browse files</button></h3>
+          <div class="upload-limits">Any extension · up to 25 MB per file · 50 files per job</div>
+        </div>
+
+        <div id="stagedFilesBar" class="staged-files-bar" style="display: none;">
+          <span id="stagedCountText">0 files staged</span>
+          <button id="recoverBtn" class="btn btn-primary"><span>Recover files</span></button>
+        </div>
+
+        <div class="results-actions-bar" id="globalDownloadsBar" style="display: none;">
+          <div class="downloads-title">Outputs</div>
+          <div class="action-links-group">
+            <button id="downloadReportBtn" class="btn btn-secondary btn-sm">report.json</button>
+            <button id="downloadZipBtn" class="btn btn-secondary btn-sm">Everything (ZIP)</button>
+          </div>
+        </div>
+
+        <div class="results-list" id="resultsList" aria-live="polite"></div>
+      </div>
+    </section>
+
+    <section class="block-card" id="block2" aria-labelledby="block2Heading">
+      <div class="block-header" id="inside">
+        <canvas data-pixel="crt" class="px block-px" aria-hidden="true"></canvas>
+        <div class="block-title-group">
+          <h2 id="block2Heading">Inside the machine</h2>
           <p>Inspecting: <strong id="selectedFileName">No file selected</strong></p>
         </div>
       </div>
-
       <div class="block-body">
-        <!-- Pipeline Stepper -->
-        <div class="pipeline-stepper" id="stepperContainer" role="tablist" aria-label="Processing Steps Pipeline">
-          <!-- Dynamically populated step nodes -->
-        </div>
-
-        <!-- Stepper Controls -->
+        <div class="pipeline-stepper" id="stepperContainer" role="tablist" aria-label="Processing steps"></div>
         <div class="stepper-controls">
           <div class="playback-buttons">
-            <button id="prevStepBtn" class="btn btn-secondary btn-sm" title="Previous step">
-              ⏮ Previous
-            </button>
-            <button id="playStepBtn" class="btn btn-primary btn-sm" title="Animate step playback">
-              ▶ Play
-            </button>
-            <button id="nextStepBtn" class="btn btn-secondary btn-sm" title="Next step">
-              ⏭ Next
-            </button>
+            <button id="prevStepBtn" class="btn btn-secondary btn-sm" title="Previous step">Previous</button>
+            <button id="playStepBtn" class="btn btn-primary btn-sm" title="Animate step playback">Play</button>
+            <button id="nextStepBtn" class="btn btn-secondary btn-sm" title="Next step">Next</button>
           </div>
-          <div class="step-counter" id="stepCounter" aria-live="polite">
-            Step 1 of 8
-          </div>
+          <div class="step-counter" id="stepCounter" aria-live="polite">Step 1 of 8</div>
         </div>
-
-        <!-- Step Detail Panel (4 Parts) -->
-        <div id="stepDetailContainer" class="step-detail-wrapper" aria-live="polite">
-          <!-- Dynamically populated detail card -->
-        </div>
+        <div id="stepDetailContainer" class="step-detail-wrapper" aria-live="polite"></div>
       </div>
     </section>
-
   </main>
 
-  <!-- Toast Notification Container -->
-  <div id="toastContainer" class="toast-container" aria-live="polite" aria-atomic="true"></div>
+  <!-- ============ Collection ============ -->
+  <section class="collection" id="collection" aria-labelledby="collectionHeading">
+    <div class="collection-head">
+      <div>
+        <h2 id="collectionHeading" class="display-md">The collection</h2>
+        <p>Ten formats from the 1970s to 1999. The bar shows how often damage went unnoticed in 39,900 damaged test copies.</p>
+      </div>
+      <div class="filter-tabs" role="tablist" aria-label="Filter formats">
+        <button class="tab active" data-filter="all" role="tab" aria-selected="true">All</button>
+        <button class="tab" data-filter="rev" role="tab" aria-selected="false">Reverse-engineered</button>
+        <button class="tab" data-filter="doc" role="tab" aria-selected="false">Documents</button>
+        <button class="tab" data-filter="arc" role="tab" aria-selected="false">Tapes &amp; archives</button>
+      </div>
+    </div>
+    <div class="collection-grid" id="collectionGrid"></div>
+  </section>
 
-  <!-- Vanilla ES Module Script -->
+  <footer class="footer">
+    <canvas data-pixel="skylineWide" class="px footer-px" aria-hidden="true"></canvas>
+    <div class="footer-text">
+      <span>Akshaya · Genesis 2.0 · PS 02</span>
+      <span>Runs on 127.0.0.1 · your files never leave this computer</span>
+    </div>
+  </footer>
+
+  <div id="toastContainer" class="toast-container" aria-live="polite" aria-atomic="true"></div>
+</div>
+
+  <script type="module" src="collection.js"></script>
   <script type="module" src="app.js"></script>
 </body>
 </html>
