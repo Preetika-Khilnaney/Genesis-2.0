@@ -335,3 +335,23 @@ canvas.px { image-rendering: pixelated; image-rendering: crisp-edges; display: b
 @media (max-width: 760px) { .collection-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 
 .footer-px { object-fit: cover; object-position: center bottom; }
+
+#mockRibbon, #mockRibbon.visible { display: none !important; }
+
+/* ---- pipeline: cards deepen in blue from step 01 to step 07 ---- */
+.step-1 { background: #F3F7FF; }
+.step-2 { background: #E7F0FF; }
+.step-3 { background: #DAE8FF; }
+.step-4 { background: #CCDFFE; }
+.step-5 { background: #BDD5FC; }
+.step-6 { background: #AECBFA; }
+.step-7 { background: #9EC0F7; }
+.step .feat-num { color: #2F5FA8; }
+.step .feat p { color: #34405A; }
+.step-6 .feat p, .step-7 .feat p { color: #22304A; }
+.card-art-top .art { background: transparent; }
+
+/* headline with the start button on its right */
+.headline-bar { display: flex; align-items: center; justify-content: space-between; gap: 20px; }
+.btn-start { flex: none; padding: 12px 26px !important; font-size: 15px !important; text-decoration: none; }
+@media (max-width: 760px) { .headline-bar { flex-direction: column; align-items: flex-start; } }
