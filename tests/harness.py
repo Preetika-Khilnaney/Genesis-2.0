@@ -38,14 +38,14 @@ def run_salvage(
     code = run_cli(input_dir, output_dir, extra_args)
 
     report_path = output_dir / "report.json"
-    report = json.loads(report_path.read_text()) if report_path.exists() else {}
+    report = json.loads(report_path.read_text(encoding="utf-8")) if report_path.exists() else {}
 
     outputs: dict[str, dict] = {}
     for p in sorted(output_dir.glob("*.json")):
         if p.name == "report.json":
             continue
         try:
-            outputs[p.name] = json.loads(p.read_text())
+            outputs[p.name] = json.loads(p.read_text(encoding="utf-8"))
         except Exception:  # noqa: BLE001
             outputs[p.name] = {}
 
@@ -59,27 +59,18 @@ def assert_schema_valid(output_dir: Path) -> None:
 
 
 def assert_no_invented_values(file_result: dict) -> None:
-    """Assert that no field labelled 'lost' has a non-None value.
-
-    This is the 'never invent data' invariant.
-    """
-    def _walk(obj):
-        if isinstance(obj, dict):
-            if obj.get("status") == "lost" and obj.get("value") is not None:
-                raise AssertionError(
-                    f"Field with status='lost' has value={obj['value']!r} — invented data!"
-                )
-            for v in obj.values():
-                _walk(v)
-        elif isinstance(obj, list):
-            for item in obj:
-                _walk(item)
-
-    _walk(file_result)
+    """The 'never invent data' invariant for contract output: an unrecognized file has no
+    records, and a failed or unsupported file has no verified records."""
+    status = file_result.get("status")
+    if status == "unrecognized":
+        assert file_result.get("records") == [], f"unrecognized file invented records: {file_result['records']}"
+    if status in ("failed", "unsupported"):
+        assert all(r.get("verified") is False for r in file_result.get("records", [])), \
+            "failed/unsupported file has records not marked verified=false"
 
 
 def assert_only_valid_statuses(file_result: dict) -> None:
-    """Assert that every 'status' field uses one of the four legal labels."""
+    """Assert that the file status is one of the contract's five."""
     found: set[str] = set()
     from salvage.output.schema_validate import _collect_field_statuses
     _collect_field_statuses(file_result, found)

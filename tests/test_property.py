@@ -32,7 +32,7 @@ def test_never_crashes_on_arbitrary_bytes(content: bytes) -> None:
         assert code == 0, f"Exit {code} on input len={len(content)}"
         assert (out / "report.json").exists(), "report.json missing"
         report = json.loads((out / "report.json").read_text())
-        assert report["files_processed"] >= 1
+        assert len(report["files"]) == 1 and report["files"][0]["status"] in VALID_STATUSES
 
 
 @settings(max_examples=30, suppress_health_check=[HealthCheck.too_slow], deadline=None)
@@ -49,10 +49,7 @@ def test_no_illegal_status_on_arbitrary_bytes(content: bytes) -> None:
             if p.name == "report.json":
                 continue
             doc = json.loads(p.read_text())
-            found: set[str] = set()
-            _collect(doc, found)
-            bad = found - VALID_STATUSES
-            assert not bad, f"Illegal status labels {sorted(bad)} in {p.name}"
+            assert doc["status"] in VALID_STATUSES, f"illegal status {doc['status']!r} in {p.name}"
 
 
 def _collect(obj, found: set[str]) -> None:
