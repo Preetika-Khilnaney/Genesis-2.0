@@ -12,10 +12,7 @@
 <div class="page">
 
   <div class="frame">
-    <div id="mockRibbon" class="mock-ribbon visible" role="status" aria-live="polite">
-      <span class="mock-badge-tag">MOCK DATA</span>
-      <span>Run <code>python3 server.py</code> and choose Real server for live results.</span>
-    </div>
+    <div id="mockRibbon" class="mock-ribbon" hidden></div>
 
     <header class="topbar">
       <a class="brand" href="#top" aria-label="Akshaya home">
@@ -28,10 +25,8 @@
         <a href="#collection">Collection</a>
       </nav>
       <div class="topbar-right">
-        <div class="offline-badge" title="Verified: zero external network requests">
-          <span class="pulse-dot" aria-hidden="true"></span><span>Offline</span>
-        </div>
-        <div id="backendStatusIndicator" class="bridge-status">Checking bridge…</div>
+        
+        <div id="backendStatusIndicator" class="bridge-status" hidden></div>
         <label for="modeSelect" class="sr-only">Data mode</label>
         <select id="modeSelect" class="select-control" aria-label="Select data mode">
           <option value="mock" selected>Mock data</option>
@@ -43,18 +38,17 @@
 
     <!-- Each box = one thing the system does -->
     <section class="bento" id="top" aria-label="What it does">
-      <a class="card card-lav card-hero" href="#recover">
+      <a class="card step step-1 card-hero" href="#recover">
         <div class="feat">
           <span class="feat-num">01</span>
           <h2 class="display">Identify</h2>
           <p>Recognises each file's format from its magic bytes, even when those bytes are damaged.</p>
         </div>
-        <span class="corner-arrow" aria-hidden="true">↗</span>
         <canvas data-pixel="skyline" class="px fill-bottom" aria-hidden="true"></canvas>
       </a>
 
       <div class="stack">
-        <div class="card card-butter card-art-top">
+        <div class="card step step-2 card-art-top">
           <canvas data-pixel="space" class="px art" aria-hidden="true"></canvas>
           <div class="feat feat-sm">
             <span class="feat-num">02</span>
@@ -62,7 +56,7 @@
             <p>10 legacy formats into clean JSON.</p>
           </div>
         </div>
-        <div class="card card-butter card-art-top">
+        <div class="card step step-3 card-art-top">
           <canvas data-pixel="pipes" class="px art" aria-hidden="true"></canvas>
           <div class="feat feat-sm">
             <span class="feat-num">03</span>
@@ -72,13 +66,12 @@
         </div>
       </div>
 
-      <div class="card card-peach card-damage">
+      <div class="card step step-4 card-damage">
         <div class="feat">
           <span class="feat-num">04</span>
           <h3 class="display-md">Repair</h3>
           <p>Fixes a single flipped bit only when the checksum proves it. Anything else is flagged, never guessed.</p>
         </div>
-        <span class="corner-arrow" aria-hidden="true">↗</span>
         <div class="media-row" aria-hidden="true">
           <canvas data-pixel="floppy" class="px media"></canvas>
           <canvas data-pixel="crt" class="px media"></canvas>
@@ -87,21 +80,21 @@
       </div>
 
       <div class="stack stack-right">
-        <div class="card card-white card-text">
+        <div class="card step step-5 card-text">
           <div class="feat feat-sm">
             <span class="feat-num">05</span>
             <h3>Report damage</h3>
             <p>Every problem with its kind, byte offset, length and whether data was lost.</p>
           </div>
         </div>
-        <div class="card card-white card-text">
+        <div class="card step step-6 card-text">
           <div class="feat feat-sm">
             <span class="feat-num">06</span>
             <h3>Audit</h3>
             <p>Hash-chained receipts make every run tamper-evident.</p>
           </div>
         </div>
-        <div class="card card-mint card-reel">
+        <div class="card step step-7 card-reel">
           <div class="feat feat-sm">
             <span class="feat-num">07</span>
             <h3>Never crash</h3>
@@ -113,7 +106,10 @@
     </section>
 
     <section class="headline-row">
-      <h2 class="headline">Bring dead files back, and say exactly what was lost.</h2>
+      <div class="headline-bar">
+        <h2 class="headline">Bring dead files back, and say exactly what was lost.</h2>
+        <a class="btn btn-primary btn-start" href="#recover">Start now</a>
+      </div>
       <ul class="proof-strip">
         <li><b>7 / 7</b><span>official outputs matched</span></li>
         <li><b>39,900</b><span>damaged copies tested</span></li>
