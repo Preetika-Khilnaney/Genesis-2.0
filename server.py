@@ -42,10 +42,11 @@ try:
 
     for name, dec in sorted(registry._REGISTRY.items()):
         spec = dec.spec
+        desc = spec.description if (spec and spec.description) else f"Decoder for {dec.name.upper()} legacy files"
         SUPPORTED_FORMATS.append({
             "name": dec.name.upper(),
-            "category": "Standard" if not spec else spec.format_name,
-            "description": f"Decoder for {dec.name.upper()} legacy files (ready={dec.ready})",
+            "category": "Standard" if not spec else spec.name.upper(),
+            "description": f"{desc} (ready={dec.ready})",
             "magic_offset": 0 if not spec else spec.magic_offset,
             "ready": dec.ready
         })
