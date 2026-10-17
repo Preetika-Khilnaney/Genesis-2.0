@@ -561,10 +561,11 @@ class SalvageBridgeHandler(SimpleHTTPRequestHandler):
                 u_count = 0
                 for r in records:
                     if isinstance(r, dict):
-                        if r.get("verified") is True:
-                            v_count += 1
-                        else:
+                        # OUTPUT-CONTRACT: a record is verified unless it carries "verified": false
+                        if r.get("verified") is False:
                             u_count += 1
+                        else:
+                            v_count += 1
 
                 damage_entries = res_data.get("damage", [])
                 status_val = res_data.get("status", "ok")
