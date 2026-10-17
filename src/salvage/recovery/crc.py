@@ -61,10 +61,16 @@ def guess_algorithm(blocks: list[tuple[bytes, int]]) -> list[str]:
     return [name for name, fn in ALGORITHMS.items() if all(fn(p) == s for p, s in blocks)]
 
 
-def single_bit_fix(algorithm: str, payload: bytes, stored: int, max_len: int = 4096) -> tuple[bytes, int] | None:
+def single_bit_fix(algorithm: str, payload: bytes, stored: int, max_len: int = 4096,
+                   stored_bits: int = 0) -> tuple[bytes, int] | None:
     """Return (fixed_payload, bit_index) if exactly ONE single-bit flip makes the checksum pass.
     Only valid for CRCs whose Hamming distance covers the block length; sums/xor are not safe.
-    Returns None when no fix, or more than one fix, exists."""
+    Returns None when no fix, or more than one fix, exists.
+
+    With stored_bits > 0 (the stored checksum's width in bits) the stored checksum's own bits
+    are candidates too: the seal itself can be the damaged part. Such a fix comes back as
+    (payload unchanged, len(payload) * 8 + k), k = the bit of the stored value that was wrong.
+    It counts toward "exactly one", so a payload fix and a checksum fix together are ambiguous."""
     if algorithm not in ("crc32", "crc16_ccitt") or len(payload) > max_len:
         return None
     fn = ALGORITHMS[algorithm]
@@ -77,4 +83,10 @@ def single_bit_fix(algorithm: str, payload: bytes, stored: int, max_len: int = 4
                 return None  # ambiguous: not provable
             found = (bytes(buf), bit)
         buf[bit // 8] ^= 1 << (bit % 8)
+    if stored_bits:
+        diff = fn(bytes(payload)) ^ stored
+        if diff and diff & (diff - 1) == 0 and diff < (1 << stored_bits):   # exactly one bit differs
+            if found is not None:
+                return None
+            found = (bytes(payload), len(payload) * 8 + diff.bit_length() - 1)
     return found

@@ -1,28 +1,27 @@
 """Per-file JSON writer. OWNER: Manas (delivery).
 
-The ONLY place that maps our internal FileResult to the published output schema.
-When the organisers' schema arrives, adapt `to_schema()` here and nowhere else.
+Writes `<output_dir>/<input file name>.json` (e.g. s01.dat.json) in the shape of
+OUTPUT-CONTRACT.md. The mapping itself lives in output/contract.py.
 """
 from __future__ import annotations
 
 import json
-import re
 from pathlib import Path
 
 from ..core.model import FileResult
+from .contract import to_contract
 
 
 def output_name(source_file: str) -> str:
-    safe = re.sub(r"[^A-Za-z0-9._-]+", "_", source_file)
-    return f"{safe}.json"
+    """The contract wants the exact input file name plus '.json'."""
+    return Path(source_file).name + ".json"
 
 
 def to_schema(res: FileResult) -> dict:
-    # TODO(Manas): map to the published schema once we have it (schema/output.schema.json).
-    return res.to_dict()
+    return to_contract(res)
 
 
 def write_result(out_dir: Path, res: FileResult) -> Path:
-    path = out_dir / output_name(res.source_file)
-    path.write_text(json.dumps(to_schema(res), indent=2, ensure_ascii=False, sort_keys=False) + "\n", encoding="utf-8")
+    path = Path(out_dir) / output_name(res.source_file)
+    path.write_text(json.dumps(to_schema(res), indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
     return path

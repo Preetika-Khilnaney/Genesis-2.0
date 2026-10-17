@@ -20,7 +20,8 @@ Rules it enforces (same as everywhere else):
 - Header fields (seq, length...) are VERIFIED only when the checksum covers them
   (checksum_covers="all"); otherwise UNVERIFIED, and the decoder may upgrade them with its
   own evidence (e.g. seq counting up by 1 across good blocks).
-- CORRECTED only when exactly one single-bit flip inside the payload fixes it.
+- CORRECTED only when exactly one single-bit flip fixes it, counting flips inside the payload
+  AND inside the stored checksum (the seal itself can be the damaged part).
 - An EMPTY payload whose checksum is the checksum of nothing (0 for crc32) stays UNVERIFIED:
   zeroed bytes produce exactly that, so the pass proves nothing.
 - A failed block is LOST: its byte range is reported, and with a marker the reader resyncs
@@ -197,12 +198,18 @@ def read_blocks(data: bytes, layout: BlockLayout, start: int = 0, max_blocks: in
             elif crc.check(L.checksum_algo, covered, stored):
                 status, note = FieldStatus.VERIFIED, f"{L.checksum_algo} ok"
             else:
-                fix = crc.single_bit_fix(L.checksum_algo, covered, stored)
+                fix = crc.single_bit_fix(L.checksum_algo, covered, stored,
+                                         stored_bits=8 * _size(L.checksum_type))
                 if fix is not None and poff * 8 <= fix[1] < (poff + n) * 8:
                     fixed, bit = fix
                     payload = fixed[poff:poff + n]
                     status = FieldStatus.CORRECTED
                     note = f"single-bit fix at payload byte {bit // 8 - poff}, bit {bit % 8}"
+                elif fix is not None and fix[1] >= len(covered) * 8:
+                    # the stored checksum had the flipped bit; the payload was right all along
+                    status = FieldStatus.CORRECTED
+                    note = (f"single-bit fix in the stored checksum, bit {fix[1] - len(covered) * 8} "
+                            "(payload unchanged; assumes a single-bit error)")
                 else:
                     status, note = FieldStatus.LOST, f"{L.checksum_algo} mismatch"
 

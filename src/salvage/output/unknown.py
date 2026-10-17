@@ -30,8 +30,37 @@ def describe(source_file: str, data: bytes, best_confidence: float = 0.0) -> Fil
         "entropy_map": entropy_map(data),
         "strings": printable_strings(data),
     }
+    res.metadata = {
+        "size": len(data),
+        "entropy": overall_ent,
+        "entropy_hint": hint,
+        "looks_like": looks_like(data),
+        "first_bytes_hex": data[:32].hex(" "),
+        "strings": [s["text"] for s in res.extra["strings"][:10]],
+    }
     if not data:
         res.warnings.append("empty file")
     elif len(data) == 1:
         res.warnings.append("1-byte file")
     return res
+
+
+SIGNATURES = [(b"\x89PNG\r\n\x1a\n", "png image"), (b"GIF8", "gif image"), (b"\xff\xd8\xff", "jpeg image"),
+              (b"PK\x03\x04", "zip archive"), (b"%PDF", "pdf document"), (b"MZ", "dos/windows executable"),
+              (b"\x7fELF", "elf executable")]
+
+
+def looks_like(data: bytes) -> str:
+    """A best-effort description of an unrecognised file. Never used to decode anything."""
+    if not data:
+        return "empty file"
+    if len(data) < 4:
+        return f"{len(data)}-byte file: too small to identify"
+    for sig, what in SIGNATURES:
+        if data.startswith(sig):
+            return what + " (not a format this tool decodes)"
+    if all(32 <= c < 127 or c in (9, 10, 13) for c in data):
+        return "plain text"
+    if entropy(data) >= 7.0 or (len(data) >= 64 and entropy(data) > 6.5):
+        return "random or compressed data"
+    return "unknown binary"
